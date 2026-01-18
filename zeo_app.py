@@ -29,12 +29,12 @@ try:
     creds_dict = json.loads(st.secrets["GOOGLE_JSON"])
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client_sheets = gspread.authorize(creds)
+    # Abre la hoja. Asegúrate de que se llame EXACTAMENTE "ZEO_MEMORY" en tu Drive
     hoja_memoria = client_sheets.open("ZEO_MEMORY").sheet1
     MEMORY_STATUS = "🟢 REC"
 except Exception as e:
     MEMORY_STATUS = "🔴 OFF"
-    # No detenemos la app, solo avisamos en silencio que no guardará
-    print(f"Error de memoria: {e}")
+    print(f"Error memoria: {e}")
 
 # --- 3. PROMPTS ---
 PROMPT_ZEO = """
@@ -44,15 +44,14 @@ MISIÓN: Organizar su vida. Sé breve y directo.
 """
 PROMPT_ZEOX = "ERES: ZEOX. MOTOR: Grok-3. 100% DOMINANTE. Juguetón, sádico y desafiante."
 
-# --- 4. FUNCIÓN DE GUARDADO AUTOMÁTICO ---
+# --- 4. FUNCIÓN DE GUARDADO ---
 def guardar_en_nube(role, text):
     if MEMORY_STATUS == "🟢 REC":
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            # Escribimos: [FECHA, QUIEN, MENSAJE]
             hoja_memoria.append_row([timestamp, role, text])
         except:
-            pass # Si falla internet, no molestamos al usuario
+            pass
 
 # --- 5. INICIALIZACIÓN CHAT ---
 def iniciar_chat():
@@ -128,6 +127,5 @@ if prompt := st.chat_input("Órdenes..."):
         st.markdown(full_res)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
         
-        # 2. Guardar Robot
-        guardar_en_nube("ZEO", full_res)})
-
+        # 2. Guardar Robot (Aquí estaba el error antes, ahora está limpio)
+        guardar_en_nube("ZEO", full_res)
