@@ -10,43 +10,86 @@ from google.oauth2.service_account import Credentials
 import json
 import requests
 
-# --- 1. CONFIGURACIÓN VISUAL (MODO CANVAS / WIDE) ---
-st.set_page_config(page_title="ZEO OS", page_icon="✨", layout="wide") # <--- AHORA ES WIDE
+# --- 1. CONFIGURACIÓN VISUAL (NOIR & ELEGANT) ---
+st.set_page_config(page_title="ZEO OS", layout="wide")
 
-# CSS PREMIUM: DISEÑO DE 3 COLUMNAS
+# CSS: ESTÉTICA DE LUJO (BLACK & GOLD/PLATINUM)
 st.markdown("""
     <style>
-    /* FONDO Y TEXTO */
-    .stApp { background-color: #FFFFFF; color: #1E1E1E; }
-    
-    /* SIDEBAR (MENÚ IZQUIERDA) */
-    [data-testid="stSidebar"] { 
-        background-color: #F8F9FA; 
-        border-right: 1px solid #E5E7EB;
-    }
-    
-    /* CHAT (COLUMNA CENTRAL) */
-    .stChatMessage { 
-        border-radius: 12px; 
-        font-family: 'Inter', sans-serif;
-    }
-    [data-testid="stChatMessage"] { background-color: #FFFFFF; border: 1px solid #F0F0F0; }
-    [data-testid="stChatMessage"].st-emotion-cache-1c7y2kd { background-color: #F4F6F8; border: none; }
+    /* IMPORTAR FUENTES ELEGANTES */
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Lato:wght@300;400&display=swap');
 
-    /* CANVAS (COLUMNA DERECHA) - ESTILO TARJETA */
-    div[data-testid="column"] {
-        padding: 10px;
+    /* FONDO GENERAL */
+    .stApp { 
+        background-color: #050505; 
+        color: #E0E0E0;
+        font-family: 'Lato', sans-serif;
+    }
+
+    /* TIPOGRAFÍA */
+    h1, h2, h3, h4 {
+        font-family: 'Playfair Display', serif !important;
+        color: #F0F0F0 !important;
+        font-weight: 400;
+        letter-spacing: 1px;
     }
     
-    /* TÍTULOS */
-    h1, h2, h3 { font-family: 'Helvetica', sans-serif; font-weight: 600; color: #202124; }
+    /* SIDEBAR (IZQUIERDA) - FONDO NEGRO Y BORDE DERECHO */
+    [data-testid="stSidebar"] { 
+        background-color: #000000; 
+        border-right: 1px solid #333333;
+    }
     
-    /* BOTONES */
+    /* COLUMNAS Y DIVISORES */
+    /* Forzamos línea divisoria entre el Chat y el Canvas */
+    div[data-testid="column"]:nth-of-type(2) {
+        border-right: 1px solid #333333;
+        padding-right: 20px;
+    }
+    div[data-testid="column"]:nth-of-type(3) {
+        padding-left: 20px;
+    }
+
+    /* CAJAS DE CHAT (MINIMALISTAS) */
+    .stChatMessage { 
+        background-color: transparent !important;
+        border: none !important;
+        border-bottom: 1px solid #1A1A1A !important;
+        border-radius: 0px !important;
+        padding: 1.5rem 0;
+    }
+    
+    /* INPUT DE TEXTO */
+    .stChatInputContainer {
+        background-color: #050505;
+        border-top: 1px solid #333;
+    }
+    div[data-testid="stChatInput"] {
+        border-radius: 0px;
+        border: 1px solid #333;
+        background-color: #0A0A0A;
+        color: white;
+    }
+
+    /* BOTONES ESTILIZADOS */
     .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        border: 1px solid #E0E0E0;
+        background-color: #0A0A0A;
+        color: #A0A0A0;
+        border: 1px solid #333;
+        border-radius: 0px;
+        font-family: 'Lato', sans-serif;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        transition: all 0.3s;
     }
+    .stButton>button:hover {
+        border-color: #FFFFFF;
+        color: #FFFFFF;
+    }
+    
+    /* OCULTAR ELEMENTOS INNECESARIOS */
+    [data-testid="stHeader"] { display: none; }
+    
     </style>
     """, unsafe_allow_html=True)
 
@@ -62,13 +105,13 @@ try:
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client_sheets = gspread.authorize(creds)
         hoja_memoria = client_sheets.open("ZEO_MEMORY").sheet1
-        MEMORY_STATUS = "🟢 ACTIVA"
+        MEMORY_STATUS = "ACTIVE"
     else:
-        MEMORY_STATUS = "⚪ OFF"
+        MEMORY_STATUS = "DISCONNECTED"
 except:
-    MEMORY_STATUS = "🔴 ERROR"
+    MEMORY_STATUS = "SYSTEM ERROR"
 
-# --- 3. SKILL: CLIMA (Con manejo de errores silencioso) ---
+# --- 3. SKILL: CLIMA (TEXTO PURO, SIN EMOJIS) ---
 def obtener_clima_madrid():
     if "CLAVE_WEATHER" in st.secrets:
         api_key = st.secrets["CLAVE_WEATHER"]
@@ -79,35 +122,39 @@ def obtener_clima_madrid():
                 d = r.json()
                 return {
                     "temp": d["main"]["temp"],
-                    "desc": d["weather"][0]["description"],
+                    "desc": d["weather"][0]["description"].capitalize(),
                     "hum": d["main"]["humidity"],
-                    "status": "🟢 ONLINE"
+                    "status": "ONLINE"
                 }
-            elif r.status_code == 401: return {"status": "🟡 ESPERANDO ACTIVACIÓN", "temp": "--", "desc": "Sin datos"}
-            else: return {"status": "🔴 ERROR API", "temp": "--", "desc": "Fallo conexión"}
-        except: return {"status": "🔴 ERROR RED", "temp": "--", "desc": "Fallo red"}
-    return {"status": "⚪ NO INSTALADA", "temp": "--", "desc": "Falta Clave"}
+            elif r.status_code == 401: return {"status": "WAITING AUTH", "temp": "--", "desc": "No Data"}
+            else: return {"status": "API ERROR", "temp": "--", "desc": "Connection Failed"}
+        except: return {"status": "NETWORK ERROR", "temp": "--", "desc": "Failed"}
+    return {"status": "NOT INSTALLED", "temp": "--", "desc": "Missing Key"}
 
 # DATOS EN TIEMPO REAL
 try:
     zona_madrid = pytz.timezone('Europe/Madrid')
     AHORA = datetime.now(zona_madrid).strftime("%H:%M")
-    FECHA_HOY = datetime.now(zona_madrid).strftime("%Y-%m-%d")
+    FECHA_HOY = datetime.now(zona_madrid).strftime("%d %B %Y").upper()
 except:
-    AHORA = "Error Reloj"
-    FECHA_HOY = "----"
+    AHORA = "00:00"
+    FECHA_HOY = "UNKNOWN DATE"
 
-INFO_CLIMA = obtener_clima_madrid() # Objeto diccionario con datos
+INFO_CLIMA = obtener_clima_madrid()
 
-# --- 4. CEREBRO (PROMPTS) ---
+# --- 4. CEREBRO ---
 PROMPT_ZEO = f"""
-SISTEMA: ZEO OS v3.0 (Mode: Canvas).
+SISTEMA: ZEO OS.
 CONTEXTO: {FECHA_HOY} | {AHORA} | Madrid. Clima: {INFO_CLIMA['temp']}C.
-IDENTIDAD: Mayordomo digital de élite de Lijie Zhang (Sr. Eliot).
+IDENTIDAD: Mayordomo Ejecutivo de Lijie Zhang (Sr. Eliot).
+ESTILO DE RESPUESTA:
+- NO uses emojis.
+- Usa un tono extremadamente elegante, profesional y culto.
+- Formato limpio y estructurado.
+- Eres intelectualmente riguroso.
 NEGOCIOS: Ildan, RenLink.
-PERSONALIDAD: Inteligente, leal, veraz. Si Eliot se equivoca, corrígele con datos.
 """
-PROMPT_ZEOX = f"ERES ZEOX (GROK). Contexto: {AHORA}, Madrid. Sé rebelde, sarcástico y reta al Sr. Eliot."
+PROMPT_ZEOX = f"ERES ZEOX (GROK). Contexto: {AHORA}, Madrid. Tono: Sarcástico, Rebelde, Sin censura. NO uses emojis, solo palabras crudas."
 
 def iniciar_motor():
     modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-1.5-pro"]
@@ -117,7 +164,7 @@ def iniciar_motor():
             test.generate_content("ping")
             return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), m
         except: continue
-    return None, "⚠️ Error Motor"
+    return None, "ENGINE FAILURE"
 
 if "chat_session" not in st.session_state:
     chat, info = iniciar_motor()
@@ -126,112 +173,110 @@ if "chat_session" not in st.session_state:
     st.session_state.messages = []
 
 def guardar_log(role, text):
-    if MEMORY_STATUS == "🟢 ACTIVA":
+    if MEMORY_STATUS == "ACTIVE":
         try: hoja_memoria.append_row([str(datetime.now()), role, text])
         except: pass
 
-# --- 5. INTERFAZ: LA NUEVA ESTRUCTURA TRIPLE ---
+# --- 5. INTERFAZ: DISEÑO DE TRES PANELES ---
 
-# A. SIDEBAR (MENÚ DE SISTEMAS & SKILLS)
+# A. PANEL IZQUIERDO (SIDEBAR - MENU)
 with st.sidebar:
-    st.markdown("## 🧬 ZEO OS")
-    st.caption(f"v3.0 | {st.session_state.info_motor}")
+    st.markdown("## ZEO OS")
+    st.markdown(f"<p style='font-size: 10px; color: #666; letter-spacing: 2px;'>SYSTEM STATUS: {INFO_CLIMA['status']}</p>", unsafe_allow_html=True)
     
     st.markdown("---")
     
-    # SECCIÓN 1: NÚCLEO (APIs CONECTADAS)
-    st.markdown("### 🔌 CONEXIONES")
-    with st.expander("Hardware / APIs", expanded=True):
-        st.markdown(f"**Cerebro:** 🟢 Gemini 2.5")
-        st.markdown(f"**Memoria:** {MEMORY_STATUS}")
-        
-        # Estado del clima con color dinámico
-        estado_clima = INFO_CLIMA['status']
-        if "🟢" in estado_clima: color = "green"
-        elif "🟡" in estado_clima: color = "orange"
-        else: color = "red"
-        st.markdown(f"**Sentidos:** <span style='color:{color}'>{estado_clima}</span>", unsafe_allow_html=True)
+    st.markdown("#### CONNECTIONS")
+    st.caption("CORE SYSTEM")
+    st.markdown(f"**Engine:** GEMINI 2.5 PRO")
+    st.markdown(f"**Memory:** {MEMORY_STATUS}")
+    st.markdown(f"**Sensors:** {INFO_CLIMA['status']}")
 
-    # SECCIÓN 2: SKILLS (LA LISTA DE HABILIDADES)
-    st.markdown("### 🧠 SKILLS")
-    st.info("💬 **Chat & Reasoning** (Activa)")
-    st.success("🌦️ **Meteo Sense** (Activa)")
-    st.markdown("🔒 **RenLink Analytics** (Inactiva)")
-    st.markdown("🔒 **Ildan Finance** (Inactiva)")
+    st.markdown("---")
+    
+    st.markdown("#### SKILLS LIBRARY")
+    st.caption("AVAILABLE MODULES")
+    st.markdown("**01.** REASONING ENGINE [ACTIVE]")
+    st.markdown("**02.** METEO DATA [ACTIVE]")
+    st.markdown("**03.** RENLINK ANALYTICS [LOCKED]")
+    st.markdown("**04.** ILDAN FINANCE [LOCKED]")
     
     st.markdown("---")
-    if st.button("🔄 REBOOT SYSTEM"):
+    if st.button("REBOOT SYSTEM"):
         st.session_state.chat_session = None
         st.session_state.messages = []
         st.rerun()
 
-# B. LAYOUT PRINCIPAL (CHAT + CANVAS)
-col_chat, col_canvas = st.columns([2, 1]) # EL CHAT OCUPA EL DOBLE QUE EL CANVAS
+# B. ESTRUCTURA PRINCIPAL (CHAT + CANVAS)
+col_chat, col_canvas = st.columns([2, 1.2])
 
-# --- COLUMNA CENTRAL: EL CHAT ---
+# --- PANEL CENTRAL: CHAT ---
 with col_chat:
-    st.markdown(f"#### 👋 Hola, Sr. Eliot.")
+    st.markdown(f"### Good evening, Mr. Eliot.")
+    st.markdown(f"<p style='color: #666; font-size: 12px;'>{FECHA_HOY} | MADRID</p>", unsafe_allow_html=True)
     
-    # Historial
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Input
-    if prompt := st.chat_input("Dar orden..."):
+    if prompt := st.chat_input("Enter command..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         guardar_log("ELIOT", prompt)
         with st.chat_message("user"): st.markdown(prompt)
 
         with st.chat_message("assistant"):
             full_res = "..."
-            # ZEOX
             if "zeox" in prompt.lower():
-                st.write(">> 👹 **ZEOX**")
+                st.write(">> ZEOX SYSTEM:")
                 if "CLAVE_GROK" in st.secrets and len(st.secrets["CLAVE_GROK"]) > 5:
                     try:
                         client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
                         res = client_grok.chat.completions.create(model="grok-3", messages=[{"role": "system", "content": PROMPT_ZEOX}, {"role": "user", "content": prompt}])
                         full_res = res.choices[0].message.content
-                    except Exception as e: full_res = f"Error: {e}"
-                else: full_res = "Falta clave Grok."
-            # ZEO
+                    except Exception as e: full_res = f"ERROR: {e}"
+                else: full_res = "ACCESS DENIED (NO KEY)"
             else:
                 try:
                     full_res = st.session_state.chat_session.send_message(prompt).text
-                except Exception as e: full_res = f"Error: {e}"
+                except Exception as e: full_res = f"ERROR: {e}"
             
             st.markdown(full_res)
             st.session_state.messages.append({"role": "assistant", "content": full_res})
             guardar_log("ZEO", full_res)
 
-# --- COLUMNA DERECHA: EL CANVAS (PREVISUALIZACIÓN) ---
+# --- PANEL DERECHO: CANVAS (VISUALIZADOR) ---
 with col_canvas:
-    st.markdown("### 👁️ CANVAS PREVIEW")
+    st.markdown("### Visual Canvas")
     
-    # PESTAÑAS DENTRO DEL CANVAS
-    tab1, tab2 = st.tabs(["📊 DASHBOARD", "📂 ARCHIVOS"])
+    # DATOS ESTILO "TICKER" FINANCIERO
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown("**LOCAL TIME**")
+        st.markdown(f"<h1 style='font-size: 40px; margin:0;'>{AHORA}</h1>", unsafe_allow_html=True)
+    with col_b:
+        st.markdown("**TEMPERATURE**")
+        temp_val = INFO_CLIMA['temp'] if INFO_CLIMA['temp'] != "--" else "N/A"
+        st.markdown(f"<h1 style='font-size: 40px; margin:0;'>{temp_val}°</h1>", unsafe_allow_html=True)
+        st.caption(f"{INFO_CLIMA['desc']}")
+    
+    st.markdown("---")
+    
+    # VISUALIZADOR DE INTENCIÓN / ARCHIVOS
+    tab1, tab2 = st.tabs(["ACTIVE PROCESS", "DATA INPUT"])
     
     with tab1:
-        # TARJETA DE CLIMA (VISUALIZACIÓN DE LA SKILL)
-        st.markdown("#### 📍 Madrid Status")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.metric("Hora", AHORA)
-        with col_b:
-            st.metric("Temp", f"{INFO_CLIMA['temp']}°C", delta=INFO_CLIMA['desc'])
-        
-        st.divider()
-        
-        # PREVISUALIZACIÓN DE INTENCIÓN (FUTURO)
-        st.markdown("#### 🤖 Active Intent")
+        st.markdown("**CURRENT TASK**")
         if st.session_state.messages:
-            ultimo_msg = st.session_state.messages[-1]["content"]
-            st.info(f"Procesando: '{ultimo_msg[:50]}...'")
+            ultimo = st.session_state.messages[-1]["content"]
+            st.markdown(f"> *Processing: {ultimo[:40]}...*")
         else:
-            st.caption("Esperando órdenes...")
+            st.markdown("> *System Idle. Awaiting input.*")
+            
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        st.markdown("**SYSTEM LOGS:**")
+        st.code(f"USER: Authorized\nLOC: Madrid\nAPI: {INFO_CLIMA['status']}", language="yaml")
 
     with tab2:
-        archivo = st.file_uploader("Analizar Doc/Img", key="canvas_uploader")
+        archivo = st.file_uploader("UPLOAD SOURCE", type=['png', 'jpg', 'pdf'])
         if archivo:
-            st.image(archivo, caption="Visualizando en Canvas")
+            st.image(archivo)
