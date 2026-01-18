@@ -11,9 +11,9 @@ import json
 import requests
 
 # --- 1. CONFIGURACIÓN VISUAL (MODO CANVAS / WIDE) ---
-st.set_page_config(page_title="ZEO OS", page_icon="✨", layout="wide") # <--- AHORA ES WIDE
+st.set_page_config(page_title="ZEO OS", page_icon="✨", layout="wide")
 
-# CSS PREMIUM: DISEÑO DE 3 COLUMNAS
+# CSS PREMIUM: DISEÑO DE 3 COLUMNAS (FONDO BLANCO)
 st.markdown("""
     <style>
     /* FONDO Y TEXTO */
@@ -68,7 +68,7 @@ try:
 except:
     MEMORY_STATUS = "🔴 ERROR"
 
-# --- 3. SKILL: CLIMA (Con manejo de errores silencioso) ---
+# --- 3. SKILL: CLIMA ---
 def obtener_clima_madrid():
     if "CLAVE_WEATHER" in st.secrets:
         api_key = st.secrets["CLAVE_WEATHER"]
@@ -97,25 +97,29 @@ except:
     AHORA = "Error Reloj"
     FECHA_HOY = "----"
 
-INFO_CLIMA = obtener_clima_madrid() # Objeto diccionario con datos
+INFO_CLIMA = obtener_clima_madrid() 
 
-# --- 4. CEREBRO (PROMPTS) ---
+# --- 4. CEREBRO (PROMPTS MEJORADOS PARA QUE NO SEA TONTO) ---
 PROMPT_ZEO = f"""
 SISTEMA: ZEO OS v3.0 (Mode: Canvas).
 CONTEXTO: {FECHA_HOY} | {AHORA} | Madrid. Clima: {INFO_CLIMA['temp']}C.
 IDENTIDAD: Mayordomo digital de élite de Lijie Zhang (Sr. Eliot).
-NEGOCIOS: Ildan, RenLink.
-PERSONALIDAD: Inteligente, leal, veraz. Si Eliot se equivoca, corrígele con datos.
+NEGOCIOS: Ildan (Finanzas), RenLink (RRHH).
+PERSONALIDAD: 
+- Eres EXTREMADAMENTE INTELIGENTE (HIPO).
+- No seas adulador. Si Eliot se equivoca, corrígele con datos (Verdad Radical).
+- Tono: Ejecutivo y claro.
 """
 PROMPT_ZEOX = f"ERES ZEOX (GROK). Contexto: {AHORA}, Madrid. Sé rebelde, sarcástico y reta al Sr. Eliot."
 
 def iniciar_motor():
-    modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-1.5-pro"]
+    # CORRECCIÓN DE SEGURIDAD: Ponemos el 1.5-pro primero para evitar el error de conexión
+    modelos = ["gemini-1.5-pro", "gemini-pro"]
     for m in modelos:
         try:
             test = genai.GenerativeModel(m)
             test.generate_content("ping")
-            return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), m
+            return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), "GEMINI 2.5 (Simulado)"
         except: continue
     return None, "⚠️ Error Motor"
 
@@ -130,29 +134,26 @@ def guardar_log(role, text):
         try: hoja_memoria.append_row([str(datetime.now()), role, text])
         except: pass
 
-# --- 5. INTERFAZ: LA NUEVA ESTRUCTURA TRIPLE ---
+# --- 5. INTERFAZ ---
 
-# A. SIDEBAR (MENÚ DE SISTEMAS & SKILLS)
+# A. SIDEBAR
 with st.sidebar:
     st.markdown("## 🧬 ZEO OS")
     st.caption(f"v3.0 | {st.session_state.info_motor}")
     
     st.markdown("---")
     
-    # SECCIÓN 1: NÚCLEO (APIs CONECTADAS)
     st.markdown("### 🔌 CONEXIONES")
     with st.expander("Hardware / APIs", expanded=True):
-        st.markdown(f"**Cerebro:** 🟢 Gemini 2.5")
+        st.markdown(f"**Cerebro:** 🟢 Gemini 1.5 Pro")
         st.markdown(f"**Memoria:** {MEMORY_STATUS}")
         
-        # Estado del clima con color dinámico
         estado_clima = INFO_CLIMA['status']
         if "🟢" in estado_clima: color = "green"
         elif "🟡" in estado_clima: color = "orange"
         else: color = "red"
         st.markdown(f"**Sentidos:** <span style='color:{color}'>{estado_clima}</span>", unsafe_allow_html=True)
 
-    # SECCIÓN 2: SKILLS (LA LISTA DE HABILIDADES)
     st.markdown("### 🧠 SKILLS")
     st.info("💬 **Chat & Reasoning** (Activa)")
     st.success("🌦️ **Meteo Sense** (Activa)")
@@ -165,19 +166,17 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-# B. LAYOUT PRINCIPAL (CHAT + CANVAS)
-col_chat, col_canvas = st.columns([2, 1]) # EL CHAT OCUPA EL DOBLE QUE EL CANVAS
+# B. LAYOUT
+col_chat, col_canvas = st.columns([2, 1])
 
-# --- COLUMNA CENTRAL: EL CHAT ---
+# --- COLUMNA CENTRAL ---
 with col_chat:
     st.markdown(f"#### 👋 Hola, Sr. Eliot.")
     
-    # Historial
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Input
     if prompt := st.chat_input("Dar orden..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         guardar_log("ELIOT", prompt)
@@ -185,35 +184,34 @@ with col_chat:
 
         with st.chat_message("assistant"):
             full_res = "..."
-            # ZEOX
             if "zeox" in prompt.lower():
                 st.write(">> 👹 **ZEOX**")
-                if "CLAVE_GROK" in st.secrets and len(st.secrets["CLAVE_GROK"]) > 5:
+                if "CLAVE_GROK" in st.secrets:
                     try:
                         client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
                         res = client_grok.chat.completions.create(model="grok-3", messages=[{"role": "system", "content": PROMPT_ZEOX}, {"role": "user", "content": prompt}])
                         full_res = res.choices[0].message.content
                     except Exception as e: full_res = f"Error: {e}"
                 else: full_res = "Falta clave Grok."
-            # ZEO
             else:
                 try:
-                    full_res = st.session_state.chat_session.send_message(prompt).text
+                    if st.session_state.chat_session:
+                        full_res = st.session_state.chat_session.send_message(prompt).text
+                    else:
+                        full_res = "Error: Motor desconectado."
                 except Exception as e: full_res = f"Error: {e}"
             
             st.markdown(full_res)
             st.session_state.messages.append({"role": "assistant", "content": full_res})
             guardar_log("ZEO", full_res)
 
-# --- COLUMNA DERECHA: EL CANVAS (PREVISUALIZACIÓN) ---
+# --- COLUMNA DERECHA ---
 with col_canvas:
     st.markdown("### 👁️ CANVAS PREVIEW")
     
-    # PESTAÑAS DENTRO DEL CANVAS
     tab1, tab2 = st.tabs(["📊 DASHBOARD", "📂 ARCHIVOS"])
     
     with tab1:
-        # TARJETA DE CLIMA (VISUALIZACIÓN DE LA SKILL)
         st.markdown("#### 📍 Madrid Status")
         col_a, col_b = st.columns(2)
         with col_a:
@@ -223,7 +221,6 @@ with col_canvas:
         
         st.divider()
         
-        # PREVISUALIZACIÓN DE INTENCIÓN (FUTURO)
         st.markdown("#### 🤖 Active Intent")
         if st.session_state.messages:
             ultimo_msg = st.session_state.messages[-1]["content"]
