@@ -10,43 +10,26 @@ from google.oauth2.service_account import Credentials
 import json
 import requests
 
-# --- 1. CONFIGURACIÓN VISUAL (MODO CANVAS / WIDE) ---
+# --- 1. CONFIGURACIÓN VISUAL (WHITE CANVAS / WIDE) ---
 st.set_page_config(page_title="ZEO OS", page_icon="✨", layout="wide")
 
-# CSS PREMIUM: DISEÑO DE 3 COLUMNAS (FONDO BLANCO)
 st.markdown("""
     <style>
-    /* FONDO Y TEXTO */
+    /* ESTÉTICA BLANCA PREMIUM */
     .stApp { background-color: #FFFFFF; color: #1E1E1E; }
     
-    /* SIDEBAR (MENÚ IZQUIERDA) */
-    [data-testid="stSidebar"] { 
-        background-color: #F8F9FA; 
-        border-right: 1px solid #E5E7EB;
-    }
+    /* SIDEBAR */
+    [data-testid="stSidebar"] { background-color: #F8F9FA; border-right: 1px solid #E5E7EB; }
     
-    /* CHAT (COLUMNA CENTRAL) */
-    .stChatMessage { 
-        border-radius: 12px; 
-        font-family: 'Inter', sans-serif;
-    }
-    [data-testid="stChatMessage"] { background-color: #FFFFFF; border: 1px solid #F0F0F0; }
+    /* CHAT */
+    [data-testid="stChatMessage"] { background-color: #FFFFFF; border: 1px solid #F0F0F0; border-radius: 12px; }
     [data-testid="stChatMessage"].st-emotion-cache-1c7y2kd { background-color: #F4F6F8; border: none; }
 
-    /* CANVAS (COLUMNA DERECHA) - ESTILO TARJETA */
-    div[data-testid="column"] {
-        padding: 10px;
-    }
-    
-    /* TÍTULOS */
-    h1, h2, h3 { font-family: 'Helvetica', sans-serif; font-weight: 600; color: #202124; }
-    
     /* BOTONES */
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        border: 1px solid #E0E0E0;
-    }
+    .stButton>button { border-radius: 8px; border: 1px solid #E0E0E0; }
+    
+    /* HEADER LIMPIO */
+    [data-testid="stHeader"] { background-color: transparent; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -63,12 +46,10 @@ try:
         client_sheets = gspread.authorize(creds)
         hoja_memoria = client_sheets.open("ZEO_MEMORY").sheet1
         MEMORY_STATUS = "🟢 ACTIVA"
-    else:
-        MEMORY_STATUS = "⚪ OFF"
-except:
-    MEMORY_STATUS = "🔴 ERROR"
+    else: MEMORY_STATUS = "⚪ OFF"
+except: MEMORY_STATUS = "🔴 ERROR"
 
-# --- 3. SKILL: CLIMA ---
+# --- 3. CLIMA ---
 def obtener_clima_madrid():
     if "CLAVE_WEATHER" in st.secrets:
         api_key = st.secrets["CLAVE_WEATHER"]
@@ -77,56 +58,57 @@ def obtener_clima_madrid():
             r = requests.get(url)
             if r.status_code == 200:
                 d = r.json()
-                return {
-                    "temp": d["main"]["temp"],
-                    "desc": d["weather"][0]["description"],
-                    "hum": d["main"]["humidity"],
-                    "status": "🟢 ONLINE"
-                }
-            elif r.status_code == 401: return {"status": "🟡 ESPERANDO ACTIVACIÓN", "temp": "--", "desc": "Sin datos"}
-            else: return {"status": "🔴 ERROR API", "temp": "--", "desc": "Fallo conexión"}
-        except: return {"status": "🔴 ERROR RED", "temp": "--", "desc": "Fallo red"}
-    return {"status": "⚪ NO INSTALADA", "temp": "--", "desc": "Falta Clave"}
+                return {"temp": d["main"]["temp"], "desc": d["weather"][0]["description"], "status": "🟢 ONLINE"}
+            elif r.status_code == 401: return {"status": "🟡 ESPERANDO", "temp": "--", "desc": "Clave"}
+        except: return {"status": "🔴 ERROR RED", "temp": "--", "desc": "Fallo"}
+    return {"status": "⚪ NO KEY", "temp": "--", "desc": "Falta"}
 
-# DATOS EN TIEMPO REAL
 try:
     zona_madrid = pytz.timezone('Europe/Madrid')
     AHORA = datetime.now(zona_madrid).strftime("%H:%M")
     FECHA_HOY = datetime.now(zona_madrid).strftime("%Y-%m-%d")
-except:
-    AHORA = "Error Reloj"
-    FECHA_HOY = "----"
+except: AHORA = "--:--"
 
 INFO_CLIMA = obtener_clima_madrid() 
 
-# --- 4. CEREBRO (PROMPTS MEJORADOS PARA QUE NO SEA TONTO) ---
+# --- 4. CEREBRO (AUDITORÍA DE MODELOS PRO) ---
 PROMPT_ZEO = f"""
-SISTEMA: ZEO OS v3.0 (Mode: Canvas).
-CONTEXTO: {FECHA_HOY} | {AHORA} | Madrid. Clima: {INFO_CLIMA['temp']}C.
-IDENTIDAD: Mayordomo digital de élite de Lijie Zhang (Sr. Eliot).
-NEGOCIOS: Ildan (Finanzas), RenLink (RRHH).
-PERSONALIDAD: 
-- Eres EXTREMADAMENTE INTELIGENTE (HIPO).
-- No seas adulador. Si Eliot se equivoca, corrígele con datos (Verdad Radical).
-- Tono: Ejecutivo y claro.
+SISTEMA: ZEO OS v3.2 (Pro Edition).
+CONTEXTO: {FECHA_HOY} | {AHORA} | Madrid.
+IDENTIDAD: Mayordomo de élite de Lijie Zhang (Sr. Eliot).
+NEGOCIOS: Ildan, RenLink.
+PERSONALIDAD: Inteligencia Máxima. Verdad Radical. No uses tono de asistente básico.
 """
-PROMPT_ZEOX = f"ERES ZEOX (GROK). Contexto: {AHORA}, Madrid. Sé rebelde, sarcástico y reta al Sr. Eliot."
+PROMPT_ZEOX = f"ERES ZEOX (GROK). Sarcástico, oscuro, sin censura."
 
-def iniciar_motor():
-    # CORRECCIÓN DE SEGURIDAD: Ponemos el 1.5-pro primero para evitar el error de conexión
-    modelos = ["gemini-1.5-pro", "gemini-pro"]
-    for m in modelos:
+def iniciar_motor_auditado():
+    # LISTA EXCLUSIVA DE MODELOS PRO (Sin Flash)
+    # El sistema probará uno a uno y se quedará con el mejor disponible.
+    jerarquia_pro = [
+        "gemini-1.5-pro",          # El ESTÁNDAR DE ORO actual
+        "gemini-1.5-pro-latest",   # Versión bleeding edge
+        "gemini-pro"               # El clásico (1.0)
+    ]
+    
+    log_intentos = []
+    
+    for m in jerarquia_pro:
         try:
             test = genai.GenerativeModel(m)
-            test.generate_content("ping")
-            return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), "GEMINI 2.5 (Simulado)"
-        except: continue
-    return None, "⚠️ Error Motor"
+            test.generate_content("ping") # Prueba de conexión
+            # Si pasa, este es el elegido
+            return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), m.upper()
+        except Exception as e:
+            log_intentos.append(f"{m}: Fallo")
+            continue
+            
+    # Si llega aquí, NINGUNO funcionó
+    return None, "NINGÚN PRO DISPONIBLE"
 
 if "chat_session" not in st.session_state:
-    chat, info = iniciar_motor()
+    chat, nombre_modelo = iniciar_motor_auditado()
     st.session_state.chat_session = chat
-    st.session_state.info_motor = info
+    st.session_state.info_motor = nombre_modelo
     st.session_state.messages = []
 
 def guardar_log(role, text):
@@ -139,29 +121,30 @@ def guardar_log(role, text):
 # A. SIDEBAR
 with st.sidebar:
     st.markdown("## 🧬 ZEO OS")
-    st.caption(f"v3.0 | {st.session_state.info_motor}")
+    
+    # DIAGNÓSTICO DEL MOTOR (AQUÍ VERÁ QUÉ VERSIÓN TIENE REALMENTE)
+    if "NINGÚN" in st.session_state.info_motor:
+        st.error(f"❌ {st.session_state.info_motor}")
+        st.caption("Su clave API no permite acceso a modelos 1.5 Pro o Pro.")
+    else:
+        st.success(f"💎 MOTOR: {st.session_state.info_motor}")
     
     st.markdown("---")
     
-    st.markdown("### 🔌 CONEXIONES")
-    with st.expander("Hardware / APIs", expanded=True):
-        st.markdown(f"**Cerebro:** 🟢 Gemini 1.5 Pro")
+    with st.expander("Estado del Sistema", expanded=True):
         st.markdown(f"**Memoria:** {MEMORY_STATUS}")
-        
         estado_clima = INFO_CLIMA['status']
-        if "🟢" in estado_clima: color = "green"
-        elif "🟡" in estado_clima: color = "orange"
-        else: color = "red"
-        st.markdown(f"**Sentidos:** <span style='color:{color}'>{estado_clima}</span>", unsafe_allow_html=True)
+        color = "green" if "🟢" in estado_clima else "red"
+        st.markdown(f"**Clima:** <span style='color:{color}'>{estado_clima}</span>", unsafe_allow_html=True)
 
     st.markdown("### 🧠 SKILLS")
-    st.info("💬 **Chat & Reasoning** (Activa)")
+    st.info("💬 **Reasoning Pro** (Activa)")
     st.success("🌦️ **Meteo Sense** (Activa)")
-    st.markdown("🔒 **RenLink Analytics** (Inactiva)")
-    st.markdown("🔒 **Ildan Finance** (Inactiva)")
+    st.markdown("🔒 **RenLink**")
+    st.markdown("🔒 **Ildan**")
     
     st.markdown("---")
-    if st.button("🔄 REBOOT SYSTEM"):
+    if st.button("🔄 REBOOT"):
         st.session_state.chat_session = None
         st.session_state.messages = []
         st.rerun()
@@ -169,7 +152,7 @@ with st.sidebar:
 # B. LAYOUT
 col_chat, col_canvas = st.columns([2, 1])
 
-# --- COLUMNA CENTRAL ---
+# --- CHAT ---
 with col_chat:
     st.markdown(f"#### 👋 Hola, Sr. Eliot.")
     
@@ -191,44 +174,36 @@ with col_chat:
                         client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
                         res = client_grok.chat.completions.create(model="grok-3", messages=[{"role": "system", "content": PROMPT_ZEOX}, {"role": "user", "content": prompt}])
                         full_res = res.choices[0].message.content
-                    except Exception as e: full_res = f"Error: {e}"
+                    except Exception as e: full_res = f"Error Grok: {e}"
                 else: full_res = "Falta clave Grok."
             else:
-                try:
-                    if st.session_state.chat_session:
+                if st.session_state.chat_session:
+                    try:
                         full_res = st.session_state.chat_session.send_message(prompt).text
-                    else:
-                        full_res = "Error: Motor desconectado."
-                except Exception as e: full_res = f"Error: {e}"
+                    except Exception as e: full_res = f"Error: {e}"
+                else:
+                    full_res = "⚠️ ERROR: No se pudo conectar con ningún modelo PRO. Revise permisos de API."
             
             st.markdown(full_res)
             st.session_state.messages.append({"role": "assistant", "content": full_res})
             guardar_log("ZEO", full_res)
 
-# --- COLUMNA DERECHA ---
+# --- CANVAS ---
 with col_canvas:
-    st.markdown("### 👁️ CANVAS PREVIEW")
-    
+    st.markdown("### 👁️ CANVAS")
     tab1, tab2 = st.tabs(["📊 DASHBOARD", "📂 ARCHIVOS"])
     
     with tab1:
         st.markdown("#### 📍 Madrid Status")
         col_a, col_b = st.columns(2)
-        with col_a:
-            st.metric("Hora", AHORA)
-        with col_b:
-            st.metric("Temp", f"{INFO_CLIMA['temp']}°C", delta=INFO_CLIMA['desc'])
-        
+        with col_a: st.metric("Hora", AHORA)
+        with col_b: st.metric("Temp", f"{INFO_CLIMA['temp']}°C", delta=INFO_CLIMA['desc'])
         st.divider()
-        
         st.markdown("#### 🤖 Active Intent")
         if st.session_state.messages:
-            ultimo_msg = st.session_state.messages[-1]["content"]
-            st.info(f"Procesando: '{ultimo_msg[:50]}...'")
-        else:
-            st.caption("Esperando órdenes...")
+            st.info(f"Procesando: '{st.session_state.messages[-1]['content'][:40]}...'")
+        else: st.caption("Esperando...")
 
     with tab2:
         archivo = st.file_uploader("Analizar Doc/Img", key="canvas_uploader")
-        if archivo:
-            st.image(archivo, caption="Visualizando en Canvas")
+        if archivo: st.image(archivo, caption="Visualizando")
