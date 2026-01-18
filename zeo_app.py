@@ -10,78 +10,118 @@ from google.oauth2.service_account import Credentials
 import json
 import requests
 
-# --- 1. CONFIGURACIÓN VISUAL (ESTRUCTURA Y CONTRASTE) ---
+# --- 1. CONFIGURACIÓN VISUAL (GLASSMORPHISM & SCI-FI) ---
 st.set_page_config(page_title="ZEO OS", layout="wide")
 
-# CSS: ARQUITECTURA VISUAL RIGUROSA
+# CSS: EL CÓDIGO DE DISEÑO MÁS AVANZADO HASTA LA FECHA
 st.markdown("""
     <style>
-    /* FUENTES */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:wght@600&display=swap');
+    /* IMPORTACIÓN DE FUENTES FUTURISTAS */
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600&family=Inter:wght@300;400&family=JetBrains+Mono:wght@100;400&display=swap');
 
-    /* 1. FONDO Y TEXTO GLOBAL (BLANCO PURO PARA LECTURA) */
+    /* 1. FONDO CON GRADIENTE RADIAL (THE VOID) */
     .stApp { 
-        background-color: #050505; 
-        color: #FFFFFF; 
+        background-color: #050505;
+        background-image: radial-gradient(circle at 90% 10%, rgba(40, 20, 60, 0.15) 0%, transparent 40%),
+                          radial-gradient(circle at 10% 90%, rgba(10, 30, 50, 0.15) 0%, transparent 40%);
+        color: #E0E0E0; 
         font-family: 'Inter', sans-serif;
     }
-    
-    /* 2. TEXTO DEL CHAT (CORRECCIÓN DE VISIBILIDAD) */
-    .stChatMessage p, .stMarkdown p {
-        color: #FFFFFF !important; /* Forza el blanco */
-        font-weight: 400;
-        font-size: 16px;
-        line-height: 1.6;
+
+    /* 2. TIPOGRAFÍA Y JERARQUÍA */
+    h1, h2, h3 {
+        font-family: 'Space Grotesk', sans-serif !important;
+        letter-spacing: 2px !important;
+        text-transform: uppercase;
+        color: #FFFFFF !important;
+        text-shadow: 0 0 20px rgba(255,255,255,0.1);
     }
     
-    /* 3. LÍNEAS DIVISORIAS VERTICALES (COLUMNAS) */
-    /* Apuntamos a las columnas de Streamlit para ponerles borde derecho */
-    [data-testid="column"]:nth-of-type(1) {
-        border-right: 1px solid #333333;
-        padding-right: 20px;
-    }
-    [data-testid="column"]:nth-of-type(2) {
-        border-right: 1px solid #333333;
-        padding-right: 20px;
-    }
-    
-    /* 4. SIDEBAR (MENÚ IZQUIERDO) */
-    [data-testid="stSidebar"] { 
-        background-color: #000000; 
-        border-right: 1px solid #333333;
-    }
-    
-    /* 5. ARREGLO DEL BOTÓN DE MENÚ (VISIBILIDAD) */
-    /* No ocultamos el header completo, solo la decoración, para que el botón de abrir menú siga visible */
-    [data-testid="stHeader"] {
-        background-color: transparent;
-    }
-    [data-testid="stDecoration"] {
-        display: none;
-    }
-    /* Forzamos que el icono de la hamburguesa sea blanco */
-    button[kind="header"] {
-        color: white !important;
+    /* FUENTE TÉCNICA (MONOSPACE) PARA DATOS */
+    .tech-font {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: 1px;
     }
 
-    /* 6. INPUT Y BOTONES */
-    .stChatInputContainer {
-        border-top: 1px solid #333;
-        background-color: #050505;
-    }
-    /* Estilo del botón "+" (Popover) */
-    button[kind="secondary"] {
-        background-color: #111;
-        color: white;
-        border: 1px solid #444;
-        border-radius: 50%; /* Redondo como en Gemini */
-        width: 40px;
-        height: 40px;
+    /* 3. SIDEBAR (CRISTAL FLOTANTE) */
+    [data-testid="stSidebar"] { 
+        background-color: rgba(5, 5, 5, 0.6) !important;
+        backdrop-filter: blur(20px);
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
     
-    /* 7. CANVAS LIMPIO (SIN EMOJIS) */
-    .css-1r6slb0 { border: 1px solid #333; }
-    h1, h2, h3 { font-family: 'Playfair Display', serif; color: white !important; }
+    /* EFECTO GLOW EN TEXTO DEL SIDEBAR */
+    .sidebar-item {
+        padding: 10px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        color: rgba(255,255,255,0.6);
+        font-family: 'Space Grotesk', sans-serif;
+    }
+    .sidebar-item:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: #FFF;
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    }
+
+    /* 4. CHAT (MINIMALISTA Y SIN CAJAS) */
+    .stChatMessage {
+        background-color: transparent !important;
+        border: none !important;
+    }
+    
+    /* MENSAJE USUARIO (DERECHA, DISCRETO) */
+    [data-testid="stChatMessage"].st-emotion-cache-1c7y2kd {
+        flex-direction: row-reverse;
+        text-align: right;
+        color: #A0A0A0;
+    }
+    
+    /* MENSAJE ZEO (IZQUIERDA, CON LÍNEA DE ACENTO) */
+    [data-testid="stChatMessage"]:not(.st-emotion-cache-1c7y2kd) {
+        border-left: 2px solid rgba(255, 255, 255, 0.2) !important;
+        padding-left: 20px;
+    }
+
+    /* 5. INPUT FLOTANTE (PILL SHAPE) */
+    .stChatInputContainer {
+        background: transparent !important;
+        border: none !important;
+        padding-bottom: 30px;
+    }
+    
+    div[data-testid="stChatInput"] {
+        background: rgba(20, 20, 20, 0.8) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 50px !important; /* Pill Shape */
+        width: 60% !important; /* No ocupa todo el ancho */
+        margin: 0 auto !important; /* Centrado */
+        backdrop-filter: blur(15px);
+        transition: all 0.3s ease;
+    }
+    
+    div[data-testid="stChatInput"]:focus-within {
+        border-color: rgba(255, 255, 255, 0.3) !important;
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.1), inset 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    /* 6. OCULTAR ELEMENTOS NO DESEADOS */
+    [data-testid="stHeader"] { background: transparent; }
+    [data-testid="stDecoration"] { display: none; }
+    
+    /* BOTÓN ADJUNTAR (Minimalista) */
+    button[kind="secondary"] {
+        border: none;
+        background: transparent;
+        color: rgba(255,255,255,0.5);
+    }
+    button[kind="secondary"]:hover {
+        color: #FFF;
+        background: rgba(255,255,255,0.1);
+    }
+
     </style>
     """, unsafe_allow_html=True)
 
@@ -89,7 +129,6 @@ st.markdown("""
 try:
     if "CLAVE_GEMINI" in st.secrets:
         genai.configure(api_key=st.secrets["CLAVE_GEMINI"])
-    
     if "GOOGLE_JSON" in st.secrets:
         json_str = st.secrets["GOOGLE_JSON"].strip()
         scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
@@ -97,14 +136,12 @@ try:
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client_sheets = gspread.authorize(creds)
         hoja_memoria = client_sheets.open("ZEO_MEMORY").sheet1
-        MEMORY_STATUS = "ACTIVE"
-    else:
-        MEMORY_STATUS = "OFF"
-except:
-    MEMORY_STATUS = "ERROR"
+        MEMORY_STATUS = "LINKED"
+    else: MEMORY_STATUS = "OFFLINE"
+except: MEMORY_STATUS = "ERR"
 
-# --- 3. CLIMA ---
-def obtener_clima_madrid():
+# --- 3. CLIMA Y HORA ---
+def obtener_clima():
     if "CLAVE_WEATHER" in st.secrets:
         api_key = st.secrets["CLAVE_WEATHER"]
         url = f"https://api.openweathermap.org/data/2.5/weather?q=Madrid&appid={api_key}&units=metric&lang=es"
@@ -112,35 +149,31 @@ def obtener_clima_madrid():
             r = requests.get(url)
             if r.status_code == 200:
                 d = r.json()
-                return {"temp": d["main"]["temp"], "desc": d["weather"][0]["description"].capitalize(), "status": "ONLINE"}
-            elif r.status_code == 401: return {"status": "WAITING", "temp": "--", "desc": "Sin datos"}
-        except: return {"status": "ERROR", "temp": "--", "desc": "Fallo red"}
-    return {"status": "NO KEY", "temp": "--", "desc": "Falta Clave"}
+                return {"temp": round(d["main"]["temp"]), "desc": d["weather"][0]["description"].upper(), "status": "ONLINE"}
+        except: pass
+    return {"status": "OFFLINE", "temp": "--", "desc": "NO DATA"}
 
 try:
     zona_madrid = pytz.timezone('Europe/Madrid')
     AHORA = datetime.now(zona_madrid).strftime("%H:%M")
-    FECHA_HOY = datetime.now(zona_madrid).strftime("%d.%m.%Y")
+    FECHA = datetime.now(zona_madrid).strftime("%Y.%m.%d")
 except:
     AHORA = "00:00"
-    FECHA_HOY = "--.--.----"
 
-INFO_CLIMA = obtener_clima_madrid()
+DATA = obtener_clima()
 
-# --- 4. MOTOR ---
+# --- 4. CEREBRO ---
 PROMPT_ZEO = f"""
-SISTEMA: ZEO OS.
-CONTEXTO: {FECHA_HOY} | {AHORA} | Madrid. Clima: {INFO_CLIMA['temp']}C.
+SISTEMA: ZEO OS (v4.0 Glass).
+CONTEXTO: {FECHA} | {AHORA} | Madrid. Clima: {DATA['temp']}C.
 IDENTIDAD: Mayordomo Ejecutivo de Lijie Zhang (Sr. Eliot).
-IDIOMA: SIEMPRE EN ESPAÑOL.
-ESTILO: Elegante, directo, sin emojis en el texto.
+ESTILO: Breve, sofisticado, eficiente.
 NEGOCIOS: Ildan, RenLink.
 """
-PROMPT_ZEOX = f"ERES ZEOX (GROK). Contexto: {AHORA}. Madrid. Idioma: ESPAÑOL. Sarcástico, sin censura."
+PROMPT_ZEOX = f"ERES ZEOX. Contexto: {AHORA}. Madrid. Sarcástico, oscuro, sin censura."
 
 def iniciar_motor():
-    modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-1.5-pro"]
-    for m in modelos:
+    for m in ["gemini-2.5-pro", "gemini-pro-latest"]:
         try:
             test = genai.GenerativeModel(m)
             test.generate_content("ping")
@@ -155,68 +188,86 @@ if "chat_session" not in st.session_state:
     st.session_state.messages = []
 
 def guardar_log(role, text):
-    if MEMORY_STATUS == "ACTIVE":
+    if MEMORY_STATUS == "LINKED":
         try: hoja_memoria.append_row([str(datetime.now()), role, text])
         except: pass
 
-# --- 5. LAYOUT DE 3 COLUMNAS (MENÚ | CHAT | CANVAS) ---
-
-# Usamos 'ratio' para definir el ancho. Sidebar es automático.
-# Aquí dividimos el espacio principal en Chat (2 partes) y Canvas (1.2 partes)
-col_chat, col_canvas = st.columns([2, 1.2]) 
-
-# --- A. SIDEBAR (MENÚ IZQUIERDO) ---
+# --- 5. LAYOUT ---
+# Sidebar
 with st.sidebar:
-    st.markdown("### ZEO OS")
-    st.caption("SYSTEM v3.5")
-    st.markdown("---")
+    st.markdown("<h3>ZEO OS <span style='font-size:10px; opacity:0.5'>v4.0</span></h3>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    st.markdown("**CONNECTIONS**")
-    st.markdown(f"ENGINE: GEMINI PRO")
-    st.markdown(f"MEMORY: {MEMORY_STATUS}")
-    # Color del estado
-    color = "green" if "ONLINE" in INFO_CLIMA['status'] else "red"
-    st.markdown(f"SENSORS: <span style='color:{color}'>{INFO_CLIMA['status']}</span>", unsafe_allow_html=True)
+    # Menú con efecto glow (Simulado con HTML)
+    menu_items = [
+        ("🧠 REASONING", "ACTIVE"),
+        ("⛈ METEO SENSE", "ACTIVE" if DATA['status']=="ONLINE" else "ERR"),
+        ("🔒 RENLINK DATA", "LOCKED"),
+        ("🔒 ILDAN FIN", "LOCKED")
+    ]
     
-    st.markdown("---")
-    st.markdown("**SKILLS**")
-    st.text("01 REASONING [ON]")
-    st.text("02 METEO DATA [ON]")
-    st.text("03 RENLINK DATA [OFF]")
-    st.text("04 ILDAN FINANCE [OFF]")
-    
-    st.markdown("---")
-    if st.button("REBOOT"):
+    for item, status in menu_items:
+        color = "#00FF99" if status == "ACTIVE" else "#FF3366" if status == "ERR" else "#666"
+        st.markdown(f"""
+        <div class="sidebar-item">
+            <span style="display:inline-block; width:8px; height:8px; background:{color}; border-radius:50%; margin-right:10px; box-shadow: 0 0 8px {color}"></span>
+            {item}
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    if st.button("SYSTEM REBOOT"):
         st.session_state.chat_session = None
         st.rerun()
 
-# --- B. COLUMNA CENTRAL (CHAT) ---
-with col_chat:
-    st.markdown(f"## Sr. Eliot.")
-    st.caption(f"MADRID | {FECHA_HOY}")
-    
-    # Espacio para mensajes
-    chat_container = st.container()
-    with chat_container:
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-    
-    # --- LA SOLUCIÓN DEL BOTÓN "+" ---
-    # Colocamos un 'popover' justo encima o integrado visualmente
-    # Usamos columnas para poner el "+" pequeñito
-    
-    col_plus, col_msg = st.columns([0.1, 0.9])
-    
-    # 1. El botón "+" (Popover)
-    with st.popover("➕", help="Adjuntar archivos"):
-        st.markdown("**Subir Evidencia**")
-        archivo = st.file_uploader("Seleccionar archivo", type=['png', 'jpg', 'pdf'], label_visibility="collapsed")
-        if archivo:
-            st.success("Archivo cargado en memoria RAM.")
-            st.image(archivo, width=200)
+# Layout Principal (Chat amplio + HUD a la derecha)
+c_chat, c_hud = st.columns([3, 1])
 
-    # 2. Input de Chat
+# --- HUD (DERECHA - FLOTANTE) ---
+with c_hud:
+    # Diseño Sci-Fi Técnico
+    st.markdown(f"""
+    <div style="text-align: right; padding-right: 20px;">
+        <div class="tech-font">MADRID_COORD_34.55</div>
+        <div style="font-family: 'Space Grotesk'; font-size: 60px; font-weight: 300; line-height: 1; color: white;">{AHORA}</div>
+        <div style="font-family: 'Inter'; font-size: 24px; font-weight: 100; opacity: 0.8;">{DATA['temp']}° <span style="font-size:14px; opacity:0.5">{DATA['desc']}</span></div>
+        <br>
+        <div class="tech-font">MEM: {MEMORY_STATUS}</div>
+        <div class="tech-font">NET: SECURE</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Espacio para visualizaciones futuras
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    if st.session_state.messages:
+        st.markdown(f"""
+        <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px);">
+            <div class="tech-font" style="color: #D4AF37;">>> ACTIVE_INTENT</div>
+            <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">Analyzing query...</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# --- CHAT (IZQUIERDA - INVISIBLE) ---
+with c_chat:
+    st.markdown("<br>", unsafe_allow_html=True) # Spacer
+    
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # Espacio vacío al final para que el input flotante no tape el texto
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+    # INPUT Y "+"
+    # Nota: Streamlit coloca el input al final automáticamente. El CSS lo hace flotar.
+    
+    # Botón + para archivos (Popover discreto)
+    col_a, col_b = st.columns([0.05, 0.95])
+    with col_a:
+        with st.popover("➕", help="Upload"):
+            archivo = st.file_uploader("Data Source", type=['png', 'jpg'], label_visibility="collapsed")
+            if archivo: st.image(archivo)
+
     if prompt := st.chat_input("Escriba su orden..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         guardar_log("ELIOT", prompt)
@@ -226,7 +277,7 @@ with col_chat:
             full_res = "..."
             if "zeox" in prompt.lower():
                 st.write(">> ZEOX:")
-                if "CLAVE_GROK" in st.secrets and len(st.secrets["CLAVE_GROK"]) > 5:
+                if "CLAVE_GROK" in st.secrets:
                     try:
                         client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
                         res = client_grok.chat.completions.create(model="grok-3", messages=[{"role": "system", "content": PROMPT_ZEOX}, {"role": "user", "content": prompt}])
@@ -235,7 +286,6 @@ with col_chat:
                 else: full_res = "NO KEY"
             else:
                 try:
-                    # Si hay archivo cargado en el Popover, se lo pasamos
                     if archivo:
                         img = Image.open(archivo)
                         visor = genai.GenerativeModel(st.session_state.info_motor)
@@ -247,31 +297,3 @@ with col_chat:
             st.markdown(full_res)
             st.session_state.messages.append({"role": "assistant", "content": full_res})
             guardar_log("ZEO", full_res)
-
-# --- C. COLUMNA DERECHA (CANVAS) ---
-with col_canvas:
-    st.markdown("### Visual Canvas")
-    
-    # Ticker de datos (Texto puro, sin emojis)
-    c1, c2 = st.columns(2)
-    c1.metric("LOCAL TIME", AHORA)
-    c2.metric("TEMP (MAD)", f"{INFO_CLIMA['temp']}°", delta=None)
-    
-    st.divider()
-    
-    # El recuadro del Canvas (Limpio)
-    st.markdown("**PREVIEW SCREEN**")
-    
-    with st.container(border=True):
-        st.markdown("""
-        <div style='height: 350px; display: flex; align-items: center; justify-content: center; color: #444; font-style: italic;'>
-            WAITING FOR VISUAL OUTPUT
-        </div>
-        """, unsafe_allow_html=True)
-        
-    st.caption("SYSTEM STATUS: NOMINAL")
-    
-    # Log de intención
-    if st.session_state.messages:
-        last = st.session_state.messages[-1]["content"]
-        st.text_area("PROCESSING INTENT:", value=last, height=70, disabled=True)
