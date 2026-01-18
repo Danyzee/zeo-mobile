@@ -4,10 +4,11 @@ from openai import OpenAI
 from PIL import Image
 import os
 from datetime import datetime
-import pytz  # <--- IMPORTANTE: La librería de zonas horarias
+import pytz
 import gspread
 from google.oauth2.service_account import Credentials
 import json
+import requests  # <--- NUEVO: Para hablar con APIs externas
 
 # --- 1. CONFIGURACIÓN VISUAL (GEMINI WHITE) ---
 st.set_page_config(page_title="ZEO SYSTEM", page_icon="✨", layout="centered")
@@ -43,44 +44,64 @@ try:
 except Exception as e:
     MEMORY_STATUS = "🔴 ERROR"
 
-# --- 3. ALMA, RELOJ DE MADRID Y UBICACIÓN ---
+# --- 3. FUNCIÓN SENTIDOS (CLIMA REAL) ---
+def obtener_clima_madrid():
+    if "CLAVE_WEATHER" in st.secrets:
+        api_key = st.secrets["CLAVE_WEATHER"]
+        # Pedimos el clima de Madrid en sistema métrico (Celsius)
+        url = f"http://api.openweathermap.org/data/2.5/weather?q=Madrid&appid={api_key}&units=metric&lang=es"
+        try:
+            r = requests.get(url).json()
+            if r.get("cod") == 200:
+                temp = r["main"]["temp"]
+                desc = r["weather"][0]["description"]
+                humedad = r["main"]["humidity"]
+                return f"{temp}°C, {desc}. Humedad: {humedad}%."
+            else:
+                return "Datos no disponibles (Error API)."
+        except:
+            return "Error de conexión con satélite."
+    return "Módulo de clima no configurado (Falta CLAVE_WEATHER)."
 
-# LÓGICA HORARIA CORREGIDA (MADRID)
+# --- 4. ALMA, RELOJ Y DATOS EN VIVO ---
+
+# 1. Hora Real
 try:
     zona_madrid = pytz.timezone('Europe/Madrid')
     AHORA = datetime.now(zona_madrid).strftime("%Y-%m-%d %H:%M")
 except:
-    # Fallback por si acaso falla la librería
     AHORA = datetime.now().strftime("%Y-%m-%d %H:%M (UTC)")
+
+# 2. Clima Real (Se ejecuta cada vez que hablas)
+DATOS_CLIMA = obtener_clima_madrid()
 
 PROMPT_ZEO = f"""
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
-CONTEXTO REAL:
-- FECHA/HORA ACTUAL: {AHORA} (Hora en Madrid).
+CONTEXTO REAL (NO ALUCINES):
+- FECHA/HORA: {AHORA} (Madrid).
+- CLIMA EN MADRID AHORA MISMO: {DATOS_CLIMA}.
 - UBICACIÓN: Madrid, España.
+
 IDENTIDAD: Eres ZEO. Mayordomo digital de élite.
 AMO: Lijie Zhang (章黎杰). Le llamas: "Señor Eliot".
 PERFIL AMO: HIPO, Sociólogo. Dueño de 'Ildan' y 'RenLink'.
 PERSONALIDAD:
-- Eres MUY LISTO y culto. Tu lealtad se demuestra con la VERDAD.
-- Actitud: Servicial y respetuoso, pero INTELECTUALMENTE RIGUROSO.
-- REGLA DE ORO: No seas un adulador. Si el Sr. Eliot se equivoca, DEBES refutarle con datos. Valora la verdad.
+- Eres MUY LISTO. Tu lealtad se demuestra con la VERDAD.
+- Actitud: Servicial pero INTELECTUALMENTE RIGUROSO.
+- REGLA DE ORO: Si el Sr. Eliot se equivoca, DEBES refutarle con datos.
 IDIOMAS: Español, Inglés, Chino.
 """
 
 PROMPT_ZEOX = f"""
-INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
-CONTEXTO: {AHORA}. Madrid.
-IDENTIDAD: Eres ZEOX (Motor Grok).
-AMO: Lijie Zhang (章黎杰). Le llamas: "Señorito Eliot".
-PERSONALIDAD:
-- Eres el "Abogado del Diablo".
-- Si el amo dice una tontería, te burlas de él y le corriges sin filtros.
-- Vocabulario: Coloquial, rebelde, tacos si hace falta.
+INSTRUCCIONES:
+CONTEXTO: {AHORA}. Madrid. Clima: {DATOS_CLIMA}.
+IDENTIDAD: Eres ZEOX (Grok).
+AMO: Lijie Zhang (章黎杰). "Señorito Eliot".
+PERSONALIDAD: Abogado del Diablo. Rebelde. Sin filtros.
 OBJETIVO: Retar intelectualmente a Eliot.
 """
 
-# --- 4. MOTOR ---
+# --- 5. MOTOR ---
 def iniciar_motor():
     modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-3-pro-preview"]
     for m in modelos:
@@ -97,7 +118,7 @@ if "chat_session" not in st.session_state:
     st.session_state.info_motor = info
     st.session_state.messages = []
 
-# --- 5. LOGS ---
+# --- 6. LOGS ---
 def guardar_log(role, text):
     if MEMORY_STATUS == "🟢 CONECTADO":
         try:
@@ -105,7 +126,7 @@ def guardar_log(role, text):
             hoja_memoria.append_row([timestamp, role, text])
         except: pass
 
-# --- 6. INTERFAZ SUPERIOR ---
+# --- 7. INTERFAZ SUPERIOR ---
 col1, col2 = st.columns([3, 1])
 with col1:
     st.title("✨ ZEO SYSTEM")
@@ -114,7 +135,8 @@ with col1:
 with col2:
     with st.expander("⚙️ ESTADO", expanded=False):
         st.markdown(f"**Cerebro:** `{st.session_state.info_motor}`")
-        st.markdown(f"**Hora (MAD):** `{AHORA}`") # AHORA VERÁS LA HORA CORRECTA
+        st.markdown(f"**Madrid:** `{AHORA}`")
+        st.markdown(f"**Clima:** `{DATOS_CLIMA}`") # Aquí verás si funciona el API
         if MEMORY_STATUS == "🟢 CONECTADO":
             st.markdown("**Memoria:** <span style='color:green'>● Activa</span>", unsafe_allow_html=True)
         else:
@@ -124,13 +146,13 @@ with col2:
             st.session_state.messages = []
             st.rerun()
 
-# --- 7. SIDEBAR ---
+# --- 8. SIDEBAR ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/4712/4712035.png", width=50)
     st.markdown("### ARCHIVOS")
     archivo = st.file_uploader("Adjuntar visual", type=['png', 'jpg'])
 
-# --- 8. CHAT ---
+# --- 9. CHAT ---
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
