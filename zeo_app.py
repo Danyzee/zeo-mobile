@@ -9,7 +9,7 @@ from google.oauth2.service_account import Credentials
 import json
 
 # --- 1. CONFIGURACIÓN VISUAL ---
-st.set_page_config(page_title="ZEO SYSTEM", page_icon="⚖️", layout="centered")
+st.set_page_config(page_title="ZEO PRO", page_icon="⚖️", layout="centered")
 st.markdown("""
     <style>
     .stApp { background-color: #000000; color: #E3E3E3; }
@@ -18,13 +18,13 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXIÓN SEGURA (API KEYS + GOOGLE SHEETS) ---
+# --- 2. CONEXIÓN SEGURA ---
 try:
     # IAs
     genai.configure(api_key=st.secrets["CLAVE_GEMINI"])
     client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
     
-    # Google Sheets (Memoria Externa)
+    # Google Sheets
     scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
     creds_dict = json.loads(st.secrets["GOOGLE_JSON"])
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
@@ -33,7 +33,6 @@ try:
     MEMORY_STATUS = "🟢 REC"
 except Exception as e:
     MEMORY_STATUS = "🔴 OFF"
-    print(f"Error memoria/keys: {e}")
 
 # --- 3. PROMPTS ---
 PROMPT_ZEO = """
@@ -43,7 +42,7 @@ MISIÓN: Organizar su vida. Sé breve y directo.
 """
 PROMPT_ZEOX = "ERES: ZEOX. MOTOR: Grok-3. 100% DOMINANTE. Juguetón, sádico y desafiante."
 
-# --- 4. FUNCIÓN DE GUARDADO ---
+# --- 4. FUNCIÓN GUARDADO ---
 def guardar_en_nube(role, text):
     if MEMORY_STATUS == "🟢 REC":
         try:
@@ -51,26 +50,32 @@ def guardar_en_nube(role, text):
             hoja_memoria.append_row([timestamp, role, text])
         except: pass
 
-# --- 5. INICIALIZACIÓN CHAT (SOLO PRO) ---
+# --- 5. INICIALIZACIÓN FUERZA BRUTA PRO ---
 def iniciar_chat():
-    # LISTA BLINDADA: SOLO VERSIONES PRO.
-    # Si estas fallan, no hay plan B.
-    modelos_pro = [
-        "gemini-1.5-pro",
-        "gemini-1.5-pro-latest", 
-        "gemini-pro"
+    # LISTA MAESTRA DE VARIANTES PRO
+    # Probamos todas las versiones técnicas posibles de PRO
+    variantes_pro = [
+        "gemini-1.5-pro-latest", # La más nueva
+        "gemini-1.5-pro",        # La estándar
+        "gemini-1.5-pro-001",    # Versión congelada 1
+        "gemini-1.5-pro-002",    # Versión congelada 2
+        "gemini-pro",            # La clásica
+        "gemini-pro-latest"      # Alias alternativo
     ]
     
-    for m in modelos_pro:
+    errores = []
+    
+    for m in variantes_pro:
         try:
             test = genai.GenerativeModel(m)
             test.generate_content("ping")
-            # Si conecta, usamos este modelo
+            # Si conecta, BINGO.
             return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), m
-        except: continue
+        except Exception as e: 
+            errores.append(f"{m}: {str(e)}")
+            continue
     
-    # Si llegamos aquí, es que TODOS los PRO han fallado.
-    return None, "⚠️ ERROR CRÍTICO: Modelos PRO no disponibles."
+    return None, errores
 
 if "chat_session" not in st.session_state:
     chat, info = iniciar_chat()
@@ -81,13 +86,15 @@ if "chat_session" not in st.session_state:
 # --- 6. INTERFAZ ---
 st.title("⚖️ ZEO PRO")
 
-# Bloqueo total si no hay Cerebro PRO
+# SISTEMA DE DIAGNÓSTICO EN PANTALLA
 if st.session_state.chat_session is None:
-    st.error(f"DETENCIÓN DEL SISTEMA: {st.session_state.debug_info}")
+    st.error("❌ ZEO NO PUEDE RESPIRAR. REPORTE TÉCNICO:")
+    # Mostramos por qué falló cada modelo PRO para saber qué pasa
+    st.code(str(st.session_state.debug_info))
     st.stop()
 
 with st.sidebar:
-    st.header("Estado del Sistema")
+    st.header("Estado")
     st.caption(f"Motor: {st.session_state.debug_info}")
     st.caption(f"Memoria: {MEMORY_STATUS}")
     archivo = st.file_uploader("Evidencia", type=['png', 'jpg', 'jpeg'])
@@ -100,7 +107,7 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# --- 7. LÓGICA DE RESPUESTA ---
+# --- 7. LÓGICA ---
 if prompt := st.chat_input("Órdenes..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     guardar_en_nube("ELIOT", prompt)
@@ -110,9 +117,9 @@ if prompt := st.chat_input("Órdenes..."):
 
     with st.chat_message("assistant"):
         full_res = ""
-        # ZEOX (Siempre Grok-3)
+        # ZEOX
         if "zeox" in prompt.lower():
-            st.write(">> 👑 ZEOX (Grok-3)...")
+            st.write(">> 👑 ZEOX...")
             try:
                 res = client_grok.chat.completions.create(
                     model="grok-3",
@@ -121,20 +128,21 @@ if prompt := st.chat_input("Órdenes..."):
                 full_res = res.choices[0].message.content
             except Exception as e: full_res = f"ZEOX Error: {e}"
         
-        # ZEO (Siempre Gemini PRO)
+        # ZEO PRO
         else:
             try:
                 if archivo:
                     img = Image.open(archivo)
-                    # Forzamos modelo PRO para visión también
-                    visor = genai.GenerativeModel("gemini-1.5-pro")
+                    # Usamos el mismo modelo que funcionó en el inicio
+                    nombre_modelo = st.session_state.debug_info
+                    visor = genai.GenerativeModel(nombre_modelo)
                     response = visor.generate_content([PROMPT_ZEO+"\n"+prompt, img])
                     full_res = response.text
                 else:
                     response = st.session_state.chat_session.send_message(prompt)
                     full_res = response.text
             except Exception as e: 
-                full_res = f"⚠️ Fallo en Motor PRO: {e}"
+                full_res = f"⚠️ Fallo ZEO PRO: {e}"
 
         st.markdown(full_res)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
