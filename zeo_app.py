@@ -14,6 +14,7 @@ st.markdown("""
     <style>
     .stApp { background-color: #000000; color: #E3E3E3; }
     .stChatMessage { border-radius: 15px; border: 1px solid #333; background-color: #0A0A0A; }
+    .stExpander { border: 1px solid #333; background-color: #111; border-radius: 10px; }
     [data-testid="stHeader"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
@@ -39,7 +40,6 @@ except:
     MEMORY_STATUS = False
 
 # --- 3. PROMPTS (PERSONALIDADES ACTUALIZADAS) ---
-
 PROMPT_ZEO = """
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
 - ROL: Eres ZEO, un mayordomo digital (Modelo Gemini).
@@ -77,7 +77,6 @@ def iniciar_chat():
         try:
             test = genai.GenerativeModel(m)
             test.generate_content("ping")
-            # Inyectamos el prompt nuevo en la memoria inicial
             return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), m
         except: continue
     return None, "Error"
@@ -87,26 +86,32 @@ if "chat_session" not in st.session_state:
     st.session_state.chat_session = chat
     st.session_state.messages = []
 
-# --- 6. INTERFAZ ---
+# --- 6. INTERFAZ PRINCIPAL ---
 st.title("⚖️ ZEO SYSTEM")
 
-with st.sidebar:
-    st.header("Multimedia")
-    estado_visual = "🟢 ON" if MEMORY_STATUS else "🔴 OFF"
-    st.caption(f"Memoria: {estado_visual}")
-    
-    archivo = st.file_uploader("Evidencia", type=['png', 'jpg', 'jpeg'])
-    if st.button("Tabula Rasa"):
-        st.session_state.chat_session = None
-        st.session_state.messages = []
-        st.rerun()
+# YA NO USAMOS SIDEBAR. AHORA ESTÁ EN EL CENTRO:
+estado_visual = "🟢 ON" if MEMORY_STATUS else "🔴 OFF"
 
+with st.expander(f"⚙️ CONTROL DE MISIÓN (Memoria: {estado_visual})"):
+    st.caption("Herramientas tácticas")
+    archivo = st.file_uploader("📸 Subir Evidencia Visual", type=['png', 'jpg', 'jpeg'])
+    
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        if st.button("🔄 REINICIAR"):
+            st.session_state.chat_session = None
+            st.session_state.messages = []
+            st.rerun()
+    with col2:
+        st.write("Pulsa Reiniciar para aplicar nuevas personalidades.")
+
+# --- 7. VISUALIZACIÓN DE CHAT ---
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# --- 7. LÓGICA DE CHAT ---
-if prompt := st.chat_input("Órdenes..."):
+# --- 8. LÓGICA DE CHAT ---
+if prompt := st.chat_input("Órdenes, Señor Eliot..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     guardar_en_nube("ELIOT", prompt)
     
@@ -133,7 +138,6 @@ if prompt := st.chat_input("Órdenes..."):
                     if archivo:
                         img = Image.open(archivo)
                         visor = genai.GenerativeModel("gemini-1.5-pro")
-                        # Enviamos el prompt actualizado con la imagen
                         response = visor.generate_content([PROMPT_ZEO+"\n"+prompt, img])
                         full_res = response.text
                     else:
