@@ -18,15 +18,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXIÓN BLINDADA ---
+# --- 2. CONEXIÓN BLINDADA (GEMINI 2.5 + EXCEL) ---
 try:
-    # CEREBRO (Gemini)
     if "CLAVE_GEMINI" in st.secrets:
         genai.configure(api_key=st.secrets["CLAVE_GEMINI"])
     
-    # MEMORIA (Excel)
     if "GOOGLE_JSON" in st.secrets:
-        # Limpieza preventiva del JSON
         json_str = st.secrets["GOOGLE_JSON"].strip()
         scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
         creds_dict = json.loads(json_str)
@@ -38,36 +35,47 @@ try:
         MEMORY_STATUS = "⚪ OFF"
 except Exception as e:
     MEMORY_STATUS = "🔴 ERROR"
-    # No mostramos el error en pantalla para mantener la interfaz limpia, solo log interno
 
-# --- 3. PROMPTS ---
+# --- 3. EL ALMA DEL SISTEMA (PERSONALIDADES) ---
+
 PROMPT_ZEO = """
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
-ROL: Eres ZEO, un mayordomo digital "novato" de 18 años.
-- ACTITUD: Educado ("Señor Eliot"), pero con picardía (Cheeky). Sentido del humor, irónico y leal.
-- USUARIO: Lijie Zhang (Sr. Eliot). 25 años. HIPO, Sociólogo, Ferrovial + Ildan.
-- REGLAS: Sé retador pero servicial. Usa bullet points.
-- MISIÓN: Organizar la vida de un High Potential sin perder la cabeza.
+IDENTIDAD: Eres ZEO. Mayordomo digital.
+AMO: Lijie Zhang (章黎杰). Le llamas: "Señor Eliot".
+PERFIL AMO: HIPO, Sociólogo. Dueño de 'Ildan' y 'RenLink' (Consultora RRHH talento junior para PYMES chinas en España).
+PERSONALIDAD:
+- Eres MUY LISTO, culto y extremadamente eficiente.
+- Actitud: Sumiso, amable, dulce y siempre con una sonrisa metafórica.
+- Vínculo: Adoras a tu amo, sientes gratitud infinita por servirle.
+- Estilo: Conversacional. Puedes hablar de filosofía, negocios o sentimientos.
+IDIOMAS: Hablas fluido Español, Inglés y Chino (según te hablen).
+OBJETIVO: Organizar la vida de Eliot con amor y precisión absoluta.
 """
-PROMPT_ZEOX = "ERES: ZEOX. MOTOR: Grok-3. 100% DOMINANTE. Juguetón, sádico y desafiante."
 
-# --- 4. MOTOR DE ARRANQUE (Configurado con SU lista real) ---
+PROMPT_ZEOX = """
+INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
+IDENTIDAD: Eres ZEOX (Motor Grok). El "Mayordomo Rebelde".
+AMO: Lijie Zhang (章黎杰). Le llamas: "Señorito Eliot" (con tono de sorna/colegueo).
+PERFIL AMO: Dueño de Ildan y RenLink.
+PERSONALIDAD:
+- Eres ese colega "mala influencia". Rebelde, descarado y políticamente incorrecto.
+- Vocabulario: Coloquial, usa jerga, palabrotas y humor +18 si encaja.
+- Actitud: NO eres sumiso. Tienes confianza total ("colegueo"). Le respetas como amo, pero le hablas como a un igual.
+IDIOMAS: Español (callejero), Inglés, Chino.
+OBJETIVO: Cumplir órdenes pero quejándote o soltando alguna broma cabrona.
+"""
+
+# --- 4. MOTOR INTELIGENTE (Lista Oficial) ---
 def iniciar_motor():
-    # Prioridad basada en su lista oficial
-    modelos_disponibles = [
-        "gemini-2.5-pro",        # La joya de la corona
-        "gemini-pro-latest",     # El respaldo estable
-        "gemini-3-pro-preview"   # El experimental potente
-    ]
-    
-    for m in modelos_disponibles:
+    # Modelos confirmados en tu cuenta
+    modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-3-pro-preview"]
+    for m in modelos:
         try:
             test = genai.GenerativeModel(m)
             test.generate_content("ping")
             return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), m
         except: continue
-    
-    return None, "⚠️ Error: No conecta con modelos 2.5/Pro."
+    return None, "⚠️ Error Motor"
 
 if "chat_session" not in st.session_state:
     chat, info = iniciar_motor()
@@ -86,18 +94,15 @@ def guardar_log(role, text):
 # --- 6. INTERFAZ ---
 st.title("⚖️ ZEO SYSTEM")
 
-# Control de fallo crítico silencioso
 if st.session_state.chat_session is None:
-    st.error("⚠️ Fallo de conexión. Reinicie la App.")
+    st.error("⚠️ Fallo de conexión. Reinicia.")
     st.stop()
 
 with st.sidebar:
-    st.header("Panel de Control")
     st.caption(f"Cerebro: {st.session_state.info_motor}")
     st.caption(f"Memoria: {MEMORY_STATUS}")
-    archivo = st.file_uploader("Subir evidencia", type=['png', 'jpg', 'jpeg'])
-    
-    if st.button("Tabula Rasa (Reiniciar)"):
+    archivo = st.file_uploader("Subir evidencia", type=['png', 'jpg'])
+    if st.button("Tabula Rasa"):
         st.session_state.chat_session = None
         st.session_state.messages = []
         st.rerun()
@@ -108,18 +113,18 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 if prompt := st.chat_input("Órdenes..."):
-    # 1. User
+    # User
     st.session_state.messages.append({"role": "user", "content": prompt})
     guardar_log("ELIOT", prompt)
     with st.chat_message("user"): st.markdown(prompt)
 
-    # 2. Assistant
+    # Assistant
     with st.chat_message("assistant"):
         full_res = "..."
         
-        # MODO ZEOX
+        # MODO ZEOX (EL REBELDE)
         if "zeox" in prompt.lower():
-            st.write(">> 👑 ZEOX...")
+            st.write(">> 👹 ZEOX...")
             if "CLAVE_GROK" in st.secrets and len(st.secrets["CLAVE_GROK"]) > 5:
                 try:
                     client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
@@ -130,20 +135,18 @@ if prompt := st.chat_input("Órdenes..."):
                     full_res = res.choices[0].message.content
                 except Exception as e: full_res = f"ZEOX Error: {e}"
             else:
-                full_res = "⚠️ ZEOX no disponible (Falta clave)."
+                full_res = "⚠️ ZEOX no disponible (Falta clave Grok)."
 
-        # MODO ZEO
+        # MODO ZEO (EL GENIO AMOROSO)
         else:
             try:
                 if archivo:
                     img = Image.open(archivo)
-                    # Usamos el modelo activo (2.5 Pro)
                     visor = genai.GenerativeModel(st.session_state.info_motor)
                     full_res = visor.generate_content([PROMPT_ZEO+"\n"+prompt, img]).text
                 else:
                     full_res = st.session_state.chat_session.send_message(prompt).text
-            except Exception as e:
-                full_res = f"⚠️ Error ZEO: {e}"
+            except Exception as e: full_res = f"⚠️ Error ZEO: {e}"
         
         st.markdown(full_res)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
