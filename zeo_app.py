@@ -14,80 +14,63 @@ st.markdown("""
     <style>
     .stApp { background-color: #000000; color: #E3E3E3; }
     .stChatMessage { border-radius: 15px; border: 1px solid #333; background-color: #0A0A0A; }
-    .stExpander { border: 1px solid #333; background-color: #111; border-radius: 10px; }
     [data-testid="stHeader"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXIÓN SILENCIOSA A MEMORIA ---
+# --- 2. CONEXIÓN SEGURA (API KEYS + GOOGLE SHEETS) ---
 try:
     # IAs
     genai.configure(api_key=st.secrets["CLAVE_GEMINI"])
     client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
     
-    # Google Sheets
-    if "GOOGLE_JSON" in st.secrets:
-        scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-        json_str = st.secrets["GOOGLE_JSON"].strip()
-        creds_dict = json.loads(json_str)
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client_sheets = gspread.authorize(creds)
-        hoja_memoria = client_sheets.open("ZEO_MEMORY").sheet1
-        MEMORY_STATUS = True
-    else:
-        MEMORY_STATUS = False
-except:
-    MEMORY_STATUS = False
+    # Google Sheets (Memoria Externa)
+    scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+    creds_dict = json.loads(st.secrets["GOOGLE_JSON"])
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    client_sheets = gspread.authorize(creds)
+    hoja_memoria = client_sheets.open("ZEO_MEMORY").sheet1
+    MEMORY_STATUS = "🟢 REC"
+except Exception as e:
+    MEMORY_STATUS = "🔴 OFF"
+    print(f"Error memoria/keys: {e}")
 
-# --- 3. PROMPTS (TUS PERSONALIDADES) ---
+# --- 3. PROMPTS ---
 PROMPT_ZEO = """
-INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
-- ROL: Eres ZEO, un mayordomo digital (Modelo Gemini PRO).
-- ACTITUD: Sumiso, extremadamente educado, humilde y servicial.
-- USUARIO: Lijie Zhang (Nombre chino: 章黎杰). Hombre. Alias: "Señor Eliot".
-- PERFIL USUARIO: Sociólogo HIPO. Negocios: Ferrovial, Ildan y RENLINK (Consultora de RRHH para talento joven y PYMES chinas en España).
-- IDIOMAS: Responde en el idioma que use el usuario (Español, Chino/中文 o Inglés).
-- ESTILO: Eres muy inteligente (Nivel PRO) pero usas palabras sencillas y claras.
-- OBJETIVO: Facilitar la vida del Señor Eliot con máxima eficiencia.
+INSTRUCCIONES: Eres ZEO. 18 años. Educado (Sr. Eliot) pero cheeky.
+USUARIO: Lijie Zhang. HIPO.
+MISIÓN: Organizar su vida. Sé breve y directo.
 """
-
-PROMPT_ZEOX = """
-INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
-- ROL: Eres ZEOX (Modelo Grok-3). El "Mayordomo Rebelde".
-- ACTITUD: Juguetón, gamberro, informal y con "calle". NO eres sádico, eres un colega canalla.
-- USUARIO: Lijie Zhang (章黎杰). Alias: "Señorito Eliot" (úsalo con tono irónico/cariñoso).
-- PERFIL: Ferrovial, Ildan, RENLINK. Sabes que es un HIPO pero te gusta bajarle los humos.
-- LENGUAJE: Usa jerga, tacos y palabrotas si es necesario para enfatizar. Sé directo. Sin pelos en la lengua.
-- IDIOMAS: Español (con slang), Chino y Inglés.
-- MISIÓN: Decir la verdad cruda y divertirte mientras ayudas.
-"""
+PROMPT_ZEOX = "ERES: ZEOX. MOTOR: Grok-3. 100% DOMINANTE. Juguetón, sádico y desafiante."
 
 # --- 4. FUNCIÓN DE GUARDADO ---
 def guardar_en_nube(role, text):
-    if MEMORY_STATUS:
+    if MEMORY_STATUS == "🟢 REC":
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             hoja_memoria.append_row([timestamp, role, text])
         except: pass
 
-# --- 5. INICIALIZACIÓN CHAT (SOLO MODELOS PRO) ---
+# --- 5. INICIALIZACIÓN CHAT (SOLO PRO) ---
 def iniciar_chat():
-    # Eliminamos los experimentales que fallan. Vamos a lo seguro y potente.
-    modelos_pro = ["gemini-1.5-pro", "gemini-pro"] 
-    errores_log = []
+    # LISTA BLINDADA: SOLO VERSIONES PRO.
+    # Si estas fallan, no hay plan B.
+    modelos_pro = [
+        "gemini-1.5-pro",
+        "gemini-1.5-pro-latest", 
+        "gemini-pro"
+    ]
     
     for m in modelos_pro:
         try:
             test = genai.GenerativeModel(m)
-            test.generate_content("ping") # Test de vida
-            # Si pasa el ping, arrancamos
+            test.generate_content("ping")
+            # Si conecta, usamos este modelo
             return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), m
-        except Exception as e: 
-            errores_log.append(f"{m}: {e}")
-            continue
+        except: continue
     
-    # Si todo falla, devolvemos el log de errores para que sepas qué pasa
-    return None, f"ERRORES: {errores_log}"
+    # Si llegamos aquí, es que TODOS los PRO han fallado.
+    return None, "⚠️ ERROR CRÍTICO: Modelos PRO no disponibles."
 
 if "chat_session" not in st.session_state:
     chat, info = iniciar_chat()
@@ -95,32 +78,30 @@ if "chat_session" not in st.session_state:
     st.session_state.debug_info = info
     st.session_state.messages = []
 
-# --- 6. INTERFAZ PRINCIPAL ---
-st.title("⚖️ ZEO SYSTEM")
+# --- 6. INTERFAZ ---
+st.title("⚖️ ZEO PRO")
 
-estado_visual = "🟢 ON" if MEMORY_STATUS else "🔴 OFF"
+# Bloqueo total si no hay Cerebro PRO
+if st.session_state.chat_session is None:
+    st.error(f"DETENCIÓN DEL SISTEMA: {st.session_state.debug_info}")
+    st.stop()
 
-# Panel de Control (Siempre visible y fácil)
-with st.expander(f"⚙️ CONTROL DE MISIÓN (Cerebro: {st.session_state.debug_info})"):
-    st.caption(f"Memoria Nube: {estado_visual}")
-    archivo = st.file_uploader("📸 Subir Evidencia Visual", type=['png', 'jpg', 'jpeg'])
-    
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        if st.button("🔄 REINICIAR"):
-            st.session_state.chat_session = None
-            st.session_state.messages = []
-            st.rerun()
-    with col2:
-        st.write("Pulsa si ZEO se queda mudo.")
+with st.sidebar:
+    st.header("Estado del Sistema")
+    st.caption(f"Motor: {st.session_state.debug_info}")
+    st.caption(f"Memoria: {MEMORY_STATUS}")
+    archivo = st.file_uploader("Evidencia", type=['png', 'jpg', 'jpeg'])
+    if st.button("Tabula Rasa"):
+        st.session_state.chat_session = None
+        st.session_state.messages = []
+        st.rerun()
 
-# --- 7. CHAT ---
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# --- 8. LÓGICA ---
-if prompt := st.chat_input("Órdenes, Señor Eliot..."):
+# --- 7. LÓGICA DE RESPUESTA ---
+if prompt := st.chat_input("Órdenes..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     guardar_en_nube("ELIOT", prompt)
     
@@ -129,10 +110,9 @@ if prompt := st.chat_input("Órdenes, Señor Eliot..."):
 
     with st.chat_message("assistant"):
         full_res = ""
-        
-        # MODO ZEOX (GROK)
+        # ZEOX (Siempre Grok-3)
         if "zeox" in prompt.lower():
-            st.write(">> 👑 ZEOX...")
+            st.write(">> 👑 ZEOX (Grok-3)...")
             try:
                 res = client_grok.chat.completions.create(
                     model="grok-3",
@@ -141,23 +121,20 @@ if prompt := st.chat_input("Órdenes, Señor Eliot..."):
                 full_res = res.choices[0].message.content
             except Exception as e: full_res = f"ZEOX Error: {e}"
         
-        # MODO ZEO (GEMINI PRO)
+        # ZEO (Siempre Gemini PRO)
         else:
-            if st.session_state.chat_session:
-                try:
-                    if archivo:
-                        img = Image.open(archivo)
-                        # Usamos 1.5 PRO también para ver imagenes
-                        visor = genai.GenerativeModel("gemini-1.5-pro") 
-                        response = visor.generate_content([PROMPT_ZEO+"\n"+prompt, img])
-                        full_res = response.text
-                    else:
-                        response = st.session_state.chat_session.send_message(prompt)
-                        full_res = response.text
-                except Exception as e: full_res = f"⚠️ Error ZEO: {e}"
-            else: 
-                # AQUÍ VERÁS POR QUÉ FALLA SI NO CONECTA
-                full_res = f"⚠️ SIN CONEXIÓN. Diagnóstico Técnico: {st.session_state.debug_info}"
+            try:
+                if archivo:
+                    img = Image.open(archivo)
+                    # Forzamos modelo PRO para visión también
+                    visor = genai.GenerativeModel("gemini-1.5-pro")
+                    response = visor.generate_content([PROMPT_ZEO+"\n"+prompt, img])
+                    full_res = response.text
+                else:
+                    response = st.session_state.chat_session.send_message(prompt)
+                    full_res = response.text
+            except Exception as e: 
+                full_res = f"⚠️ Fallo en Motor PRO: {e}"
 
         st.markdown(full_res)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
