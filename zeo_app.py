@@ -44,24 +44,36 @@ try:
 except Exception as e:
     MEMORY_STATUS = "🔴 ERROR"
 
-# --- 3. FUNCIÓN SENTIDOS (CLIMA REAL) ---
+# --- 3. FUNCIÓN SENTIDOS (DIAGNÓSTICO) ---
 def obtener_clima_madrid():
     if "CLAVE_WEATHER" in st.secrets:
         api_key = st.secrets["CLAVE_WEATHER"]
-        # Pedimos el clima de Madrid en sistema métrico (Celsius)
-        url = f"http://api.openweathermap.org/data/2.5/weather?q=Madrid&appid={api_key}&units=metric&lang=es"
+        # URL de prueba directa
+        url = f"https://api.openweathermap.org/data/2.5/weather?q=Madrid&appid={api_key}&units=metric&lang=es"
+        
         try:
-            r = requests.get(url).json()
-            if r.get("cod") == 200:
-                temp = r["main"]["temp"]
-                desc = r["weather"][0]["description"]
-                humedad = r["main"]["humidity"]
-                return f"{temp}°C, {desc}. Humedad: {humedad}%."
+            # Intentamos conectar
+            respuesta = requests.get(url)
+            datos = respuesta.json()
+            
+            # Si el código es 200, todo bien
+            if respuesta.status_code == 200:
+                temp = datos["main"]["temp"]
+                desc = datos["weather"][0]["description"]
+                return f"{temp}°C, {desc}."
+            
+            # SI FALLA, DEVUELVE EL CÓDIGO DE ERROR (ESTO ES LO QUE NECESITAMOS VER)
+            elif respuesta.status_code == 401:
+                return "ERROR 401: La Clave API es incorrecta o no se ha activado aún."
+            elif respuesta.status_code == 404:
+                return "ERROR 404: Ciudad no encontrada."
             else:
-                return "Datos no disponibles (Error API)."
-        except:
-            return "Error de conexión con satélite."
-    return "Módulo de clima no configurado (Falta CLAVE_WEATHER)."
+                return f"ERROR {respuesta.status_code}: {datos.get('message', 'Desconocido')}"
+                
+        except Exception as e:
+            return f"ERROR CRÍTICO: {str(e)}"
+            
+    return "Falta CLAVE_WEATHER en Secrets."
 
 # --- 4. ALMA, RELOJ Y DATOS EN VIVO ---
 
@@ -192,3 +204,4 @@ if prompt := st.chat_input("Escribe aquí, Señor Eliot..."):
         st.markdown(full_res)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
         guardar_log("ZEO", full_res)
+
