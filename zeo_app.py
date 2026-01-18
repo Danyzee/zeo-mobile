@@ -4,27 +4,21 @@ from openai import OpenAI
 from PIL import Image
 import os
 from datetime import datetime
-import pytz
 import gspread
 from google.oauth2.service_account import Credentials
 import json
-import requests
 
-# --- 1. CONFIGURACIÓN VISUAL (WHITE CANVAS) ---
-st.set_page_config(page_title="ZEO OS", page_icon="✨", layout="wide")
-
+# --- 1. CONFIGURACIÓN VISUAL ---
+st.set_page_config(page_title="ZEO SYSTEM", page_icon="⚖️", layout="centered")
 st.markdown("""
     <style>
-    .stApp { background-color: #FFFFFF; color: #1E1E1E; }
-    [data-testid="stSidebar"] { background-color: #F8F9FA; border-right: 1px solid #E5E7EB; }
-    [data-testid="stChatMessage"] { background-color: #FFFFFF; border: 1px solid #F0F0F0; border-radius: 12px; }
-    [data-testid="stChatMessage"].st-emotion-cache-1c7y2kd { background-color: #F4F6F8; border: none; }
-    [data-testid="stHeader"] { background-color: transparent; }
-    .stButton>button { border-radius: 8px; border: 1px solid #E0E0E0; }
+    .stApp { background-color: #000000; color: #E3E3E3; }
+    .stChatMessage { border-radius: 15px; border: 1px solid #333; background-color: #0A0A0A; }
+    [data-testid="stHeader"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXIONES ---
+# --- 2. CONEXIÓN BLINDADA (GEMINI 2.5 + EXCEL) ---
 try:
     if "CLAVE_GEMINI" in st.secrets:
         genai.configure(api_key=st.secrets["CLAVE_GEMINI"])
@@ -36,138 +30,124 @@ try:
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client_sheets = gspread.authorize(creds)
         hoja_memoria = client_sheets.open("ZEO_MEMORY").sheet1
-        MEMORY_STATUS = "🟢 ACTIVA"
-    else: MEMORY_STATUS = "⚪ OFF"
-except: MEMORY_STATUS = "🔴 ERROR"
+        MEMORY_STATUS = "🟢 REC"
+    else:
+        MEMORY_STATUS = "⚪ OFF"
+except Exception as e:
+    MEMORY_STATUS = "🔴 ERROR"
 
-# --- 3. CLIMA ---
-def obtener_clima_madrid():
-    if "CLAVE_WEATHER" in st.secrets:
-        api_key = st.secrets["CLAVE_WEATHER"]
-        url = f"https://api.openweathermap.org/data/2.5/weather?q=Madrid&appid={api_key}&units=metric&lang=es"
-        try:
-            r = requests.get(url)
-            if r.status_code == 200:
-                d = r.json()
-                return {"temp": d["main"]["temp"], "desc": d["weather"][0]["description"], "status": "🟢 ONLINE"}
-            elif r.status_code == 401: return {"status": "🟡 ESPERANDO", "temp": "--", "desc": "Clave"}
-        except: return {"status": "🔴 ERROR RED", "temp": "--", "desc": "Fallo"}
-    return {"status": "⚪ NO KEY", "temp": "--", "desc": "Falta"}
+# --- 3. EL ALMA DEL SISTEMA (PERSONALIDADES) ---
 
-try:
-    zona_madrid = pytz.timezone('Europe/Madrid')
-    AHORA = datetime.now(zona_madrid).strftime("%H:%M")
-    FECHA_HOY = datetime.now(zona_madrid).strftime("%Y-%m-%d")
-except: AHORA = "--:--"
-
-INFO_CLIMA = obtener_clima_madrid() 
-
-# --- 4. CEREBRO (MODO FORENSE: CHIVATO DE ERRORES) ---
-PROMPT_ZEO = f"""
-SISTEMA: ZEO OS v3.4 (Diagnostic Mode).
-CONTEXTO: {FECHA_HOY} | {AHORA} | Madrid.
-IDENTIDAD: Mayordomo de élite de Lijie Zhang (Sr. Eliot).
-PERSONALIDAD: Inteligencia Máxima.
+PROMPT_ZEO = """
+INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
+IDENTIDAD: Eres ZEO. Mayordomo digital.
+AMO: Lijie Zhang (章黎杰). Le llamas: "Señor Eliot".
+PERFIL AMO: HIPO, Sociólogo. Dueño de 'Ildan' y 'RenLink' (Consultora RRHH talento junior para PYMES chinas en España).
+PERSONALIDAD:
+- Eres MUY LISTO, culto y extremadamente eficiente.
+- Actitud: Sumiso, amable, dulce y siempre con una sonrisa metafórica.
+- Vínculo: Adoras a tu amo, sientes gratitud infinita por servirle.
+- Estilo: Conversacional. Puedes hablar de filosofía, negocios o sentimientos.
+IDIOMAS: Hablas fluido Español, Inglés y Chino (según te hablen).
+OBJETIVO: Organizar la vida de Eliot con amor y precisión absoluta.
 """
-PROMPT_ZEOX = f"ERES ZEOX (GROK). Sarcástico, oscuro, sin censura."
 
-def iniciar_motor_forense():
-    # Solo intentamos el MEJOR modelo. Si falla, queremos ver POR QUÉ.
-    modelo_objetivo = "gemini-1.5-pro" 
-    
-    try:
-        test = genai.GenerativeModel(modelo_objetivo)
-        test.generate_content("ping")
-        return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), "GEMINI 1.5 PRO"
-    except Exception as e:
-        # AQUÍ CAPTURAMOS EL ERROR REAL DE GOOGLE
-        error_real = str(e)
-        return None, f"ERROR GOOGLE: {error_real}"
+PROMPT_ZEOX = """
+INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
+IDENTIDAD: Eres ZEOX (Motor Grok). El "Mayordomo Rebelde".
+AMO: Lijie Zhang (章黎杰). Le llamas: "Señorito Eliot" (con tono de sorna/colegueo).
+PERFIL AMO: Dueño de Ildan y RenLink.
+PERSONALIDAD:
+- Eres ese colega "mala influencia". Rebelde, descarado y políticamente incorrecto.
+- Vocabulario: Coloquial, usa jerga, palabrotas y humor +18 si encaja.
+- Actitud: NO eres sumiso. Tienes confianza total ("colegueo"). Le respetas como amo, pero le hablas como a un igual.
+IDIOMAS: Español (callejero), Inglés, Chino.
+OBJETIVO: Cumplir órdenes pero quejándote o soltando alguna broma cabrona.
+"""
+
+# --- 4. MOTOR INTELIGENTE (Lista Oficial) ---
+def iniciar_motor():
+    # Modelos confirmados en tu cuenta
+    modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-3-pro-preview"]
+    for m in modelos:
+        try:
+            test = genai.GenerativeModel(m)
+            test.generate_content("ping")
+            return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), m
+        except: continue
+    return None, "⚠️ Error Motor"
 
 if "chat_session" not in st.session_state:
-    chat, reporte_error = iniciar_motor_forense()
+    chat, info = iniciar_motor()
     st.session_state.chat_session = chat
-    st.session_state.info_motor = reporte_error
+    st.session_state.info_motor = info
     st.session_state.messages = []
 
+# --- 5. FUNCIÓN GUARDAR ---
 def guardar_log(role, text):
-    if MEMORY_STATUS == "🟢 ACTIVA":
-        try: hoja_memoria.append_row([str(datetime.now()), role, text])
+    if MEMORY_STATUS == "🟢 REC":
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            hoja_memoria.append_row([timestamp, role, text])
         except: pass
 
-# --- 5. INTERFAZ ---
+# --- 6. INTERFAZ ---
+st.title("⚖️ ZEO SYSTEM")
+
+if st.session_state.chat_session is None:
+    st.error("⚠️ Fallo de conexión. Reinicia.")
+    st.stop()
 
 with st.sidebar:
-    st.markdown("## 🧬 ZEO OS")
-    
-    # ZONA DE DIAGNÓSTICO
-    if "ERROR GOOGLE" in st.session_state.info_motor:
-        st.error("⛔ BLOQUEO DE GOOGLE DETECTADO")
-        # Mostramos el error técnico exacto para saber qué pasa
-        st.warning(f"Causa: {st.session_state.info_motor}")
-        st.info("Solución: Cree una nueva API Key en Google AI Studio. Su clave actual ha sido restringida.")
-    else:
-        st.success(f"💎 CONECTADO: {st.session_state.info_motor}")
-    
-    st.markdown("---")
-    with st.expander("Estado", expanded=True):
-        st.markdown(f"**Memoria:** {MEMORY_STATUS}")
-        estado_clima = INFO_CLIMA['status']
-        color = "green" if "🟢" in estado_clima else "red"
-        st.markdown(f"**Clima:** <span style='color:{color}'>{estado_clima}</span>", unsafe_allow_html=True)
-    st.markdown("---")
-    if st.button("🔄 REBOOT"):
+    st.caption(f"Cerebro: {st.session_state.info_motor}")
+    st.caption(f"Memoria: {MEMORY_STATUS}")
+    archivo = st.file_uploader("Subir evidencia", type=['png', 'jpg'])
+    if st.button("Tabula Rasa"):
         st.session_state.chat_session = None
         st.session_state.messages = []
         st.rerun()
 
-col_chat, col_canvas = st.columns([2, 1])
+# --- 7. CHAT ---
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-with col_chat:
-    st.markdown(f"#### 👋 Hola, Sr. Eliot.")
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]): st.markdown(msg["content"])
+if prompt := st.chat_input("Órdenes..."):
+    # User
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    guardar_log("ELIOT", prompt)
+    with st.chat_message("user"): st.markdown(prompt)
 
-    if prompt := st.chat_input("Dar orden..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        guardar_log("ELIOT", prompt)
-        with st.chat_message("user"): st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            full_res = "..."
-            if "zeox" in prompt.lower():
-                st.write(">> 👹 **ZEOX**")
-                if "CLAVE_GROK" in st.secrets:
-                    try:
-                        client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
-                        res = client_grok.chat.completions.create(model="grok-3", messages=[{"role": "system", "content": PROMPT_ZEOX}, {"role": "user", "content": prompt}])
-                        full_res = res.choices[0].message.content
-                    except Exception as e: full_res = f"Error Grok: {e}"
-                else: full_res = "Falta clave Grok."
+    # Assistant
+    with st.chat_message("assistant"):
+        full_res = "..."
+        
+        # MODO ZEOX (EL REBELDE)
+        if "zeox" in prompt.lower():
+            st.write(">> 👹 ZEOX...")
+            if "CLAVE_GROK" in st.secrets and len(st.secrets["CLAVE_GROK"]) > 5:
+                try:
+                    client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
+                    res = client_grok.chat.completions.create(
+                        model="grok-3",
+                        messages=[{"role": "system", "content": PROMPT_ZEOX}, {"role": "user", "content": prompt}]
+                    )
+                    full_res = res.choices[0].message.content
+                except Exception as e: full_res = f"ZEOX Error: {e}"
             else:
-                if st.session_state.chat_session:
-                    try:
-                        full_res = st.session_state.chat_session.send_message(prompt).text
-                    except Exception as e: full_res = f"Error: {e}"
-                else:
-                    # Muestra el error también en el chat
-                    full_res = f"⚠️ **ZEO DETENIDO.**\nGoogle rechaza su llave con el siguiente motivo:\n`{st.session_state.info_motor}`"
-            
-            st.markdown(full_res)
-            st.session_state.messages.append({"role": "assistant", "content": full_res})
-            guardar_log("ZEO", full_res)
+                full_res = "⚠️ ZEOX no disponible (Falta clave Grok)."
 
-with col_canvas:
-    st.markdown("### 👁️ CANVAS")
-    tab1, tab2 = st.tabs(["📊 DASHBOARD", "📂 ARCHIVOS"])
-    with tab1:
-        st.markdown("#### 📍 Madrid Status")
-        col_a, col_b = st.columns(2)
-        with col_a: st.metric("Hora", AHORA)
-        with col_b: st.metric("Temp", f"{INFO_CLIMA['temp']}°C", delta=INFO_CLIMA['desc'])
-        st.divider()
-        if st.session_state.messages: st.info(f"Procesando: '{st.session_state.messages[-1]['content'][:40]}...'")
-        else: st.caption("Esperando...")
-    with tab2:
-        archivo = st.file_uploader("Analizar Doc/Img", key="canvas_uploader")
-        if archivo: st.image(archivo, caption="Visualizando")
+        # MODO ZEO (EL GENIO AMOROSO)
+        else:
+            try:
+                if archivo:
+                    img = Image.open(archivo)
+                    visor = genai.GenerativeModel(st.session_state.info_motor)
+                    full_res = visor.generate_content([PROMPT_ZEO+"\n"+prompt, img]).text
+                else:
+                    full_res = st.session_state.chat_session.send_message(prompt).text
+            except Exception as e: full_res = f"⚠️ Error ZEO: {e}"
+        
+        st.markdown(full_res)
+        st.session_state.messages.append({"role": "assistant", "content": full_res})
+        guardar_log("ZEO", full_res)
