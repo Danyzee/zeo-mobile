@@ -4,6 +4,7 @@ from openai import OpenAI
 from PIL import Image
 import os
 from datetime import datetime
+import pytz  # <--- IMPORTANTE: La librería de zonas horarias
 import gspread
 from google.oauth2.service_account import Credentials
 import json
@@ -11,7 +12,6 @@ import json
 # --- 1. CONFIGURACIÓN VISUAL (GEMINI WHITE) ---
 st.set_page_config(page_title="ZEO SYSTEM", page_icon="✨", layout="centered")
 
-# He compactado el CSS para que ocupe menos, pero es el MISMO diseño blanco
 st.markdown("""
     <style>
     .stApp { background-color: #FFFFFF; color: #1E1E1E; }
@@ -43,14 +43,21 @@ try:
 except Exception as e:
     MEMORY_STATUS = "🔴 ERROR"
 
-# --- 3. ALMA, PERSONALIDAD Y RELOJ (AQUÍ ESTÁ LA MAGIA) ---
+# --- 3. ALMA, RELOJ DE MADRID Y UBICACIÓN ---
 
-# Capturamos la hora EXACTA del momento de la consulta
-AHORA = datetime.now().strftime("%Y-%m-%d %H:%M")
+# LÓGICA HORARIA CORREGIDA (MADRID)
+try:
+    zona_madrid = pytz.timezone('Europe/Madrid')
+    AHORA = datetime.now(zona_madrid).strftime("%Y-%m-%d %H:%M")
+except:
+    # Fallback por si acaso falla la librería
+    AHORA = datetime.now().strftime("%Y-%m-%d %H:%M (UTC)")
 
 PROMPT_ZEO = f"""
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
-CONTEXTO TEMPORAL: Hoy es {AHORA}. (Si preguntan fecha u hora, usa este dato).
+CONTEXTO REAL:
+- FECHA/HORA ACTUAL: {AHORA} (Hora en Madrid).
+- UBICACIÓN: Madrid, España.
 IDENTIDAD: Eres ZEO. Mayordomo digital de élite.
 AMO: Lijie Zhang (章黎杰). Le llamas: "Señor Eliot".
 PERFIL AMO: HIPO, Sociólogo. Dueño de 'Ildan' y 'RenLink'.
@@ -63,7 +70,7 @@ IDIOMAS: Español, Inglés, Chino.
 
 PROMPT_ZEOX = f"""
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
-CONTEXTO TEMPORAL: Hoy es {AHORA}.
+CONTEXTO: {AHORA}. Madrid.
 IDENTIDAD: Eres ZEOX (Motor Grok).
 AMO: Lijie Zhang (章黎杰). Le llamas: "Señorito Eliot".
 PERSONALIDAD:
@@ -94,7 +101,7 @@ if "chat_session" not in st.session_state:
 def guardar_log(role, text):
     if MEMORY_STATUS == "🟢 CONECTADO":
         try:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            timestamp = datetime.now(pytz.timezone('Europe/Madrid')).strftime("%Y-%m-%d %H:%M:%S")
             hoja_memoria.append_row([timestamp, role, text])
         except: pass
 
@@ -107,7 +114,7 @@ with col1:
 with col2:
     with st.expander("⚙️ ESTADO", expanded=False):
         st.markdown(f"**Cerebro:** `{st.session_state.info_motor}`")
-        st.markdown(f"**Hora:** `{AHORA}`") # VERIFICACIÓN DE HORA
+        st.markdown(f"**Hora (MAD):** `{AHORA}`") # AHORA VERÁS LA HORA CORRECTA
         if MEMORY_STATUS == "🟢 CONECTADO":
             st.markdown("**Memoria:** <span style='color:green'>● Activa</span>", unsafe_allow_html=True)
         else:
