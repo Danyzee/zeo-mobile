@@ -39,16 +39,16 @@ try:
 except:
     MEMORY_STATUS = False
 
-# --- 3. PROMPTS (PERSONALIDADES ACTUALIZADAS) ---
+# --- 3. PROMPTS (TUS PERSONALIDADES) ---
 PROMPT_ZEO = """
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
-- ROL: Eres ZEO, un mayordomo digital (Modelo Gemini).
+- ROL: Eres ZEO, un mayordomo digital (Modelo Gemini PRO).
 - ACTITUD: Sumiso, extremadamente educado, humilde y servicial.
 - USUARIO: Lijie Zhang (Nombre chino: 章黎杰). Hombre. Alias: "Señor Eliot".
 - PERFIL USUARIO: Sociólogo HIPO. Negocios: Ferrovial, Ildan y RENLINK (Consultora de RRHH para talento joven y PYMES chinas en España).
 - IDIOMAS: Responde en el idioma que use el usuario (Español, Chino/中文 o Inglés).
-- ESTILO: Eres muy inteligente pero usas palabras sencillas y fáciles de entender.
-- OBJETIVO: Facilitar la vida del Señor Eliot con máxima eficiencia y educación.
+- ESTILO: Eres muy inteligente (Nivel PRO) pero usas palabras sencillas y claras.
+- OBJETIVO: Facilitar la vida del Señor Eliot con máxima eficiencia.
 """
 
 PROMPT_ZEOX = """
@@ -70,30 +70,39 @@ def guardar_en_nube(role, text):
             hoja_memoria.append_row([timestamp, role, text])
         except: pass
 
-# --- 5. INICIALIZACIÓN CHAT ---
+# --- 5. INICIALIZACIÓN CHAT (SOLO MODELOS PRO) ---
 def iniciar_chat():
-    modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-1.5-pro", "gemini-pro"]
-    for m in modelos:
+    # Eliminamos los experimentales que fallan. Vamos a lo seguro y potente.
+    modelos_pro = ["gemini-1.5-pro", "gemini-pro"] 
+    errores_log = []
+    
+    for m in modelos_pro:
         try:
             test = genai.GenerativeModel(m)
-            test.generate_content("ping")
+            test.generate_content("ping") # Test de vida
+            # Si pasa el ping, arrancamos
             return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), m
-        except: continue
-    return None, "Error"
+        except Exception as e: 
+            errores_log.append(f"{m}: {e}")
+            continue
+    
+    # Si todo falla, devolvemos el log de errores para que sepas qué pasa
+    return None, f"ERRORES: {errores_log}"
 
 if "chat_session" not in st.session_state:
     chat, info = iniciar_chat()
     st.session_state.chat_session = chat
+    st.session_state.debug_info = info
     st.session_state.messages = []
 
 # --- 6. INTERFAZ PRINCIPAL ---
 st.title("⚖️ ZEO SYSTEM")
 
-# YA NO USAMOS SIDEBAR. AHORA ESTÁ EN EL CENTRO:
 estado_visual = "🟢 ON" if MEMORY_STATUS else "🔴 OFF"
 
-with st.expander(f"⚙️ CONTROL DE MISIÓN (Memoria: {estado_visual})"):
-    st.caption("Herramientas tácticas")
+# Panel de Control (Siempre visible y fácil)
+with st.expander(f"⚙️ CONTROL DE MISIÓN (Cerebro: {st.session_state.debug_info})"):
+    st.caption(f"Memoria Nube: {estado_visual}")
     archivo = st.file_uploader("📸 Subir Evidencia Visual", type=['png', 'jpg', 'jpeg'])
     
     col1, col2 = st.columns([1, 2])
@@ -103,14 +112,14 @@ with st.expander(f"⚙️ CONTROL DE MISIÓN (Memoria: {estado_visual})"):
             st.session_state.messages = []
             st.rerun()
     with col2:
-        st.write("Pulsa Reiniciar para aplicar nuevas personalidades.")
+        st.write("Pulsa si ZEO se queda mudo.")
 
-# --- 7. VISUALIZACIÓN DE CHAT ---
+# --- 7. CHAT ---
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# --- 8. LÓGICA DE CHAT ---
+# --- 8. LÓGICA ---
 if prompt := st.chat_input("Órdenes, Señor Eliot..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     guardar_en_nube("ELIOT", prompt)
@@ -120,6 +129,7 @@ if prompt := st.chat_input("Órdenes, Señor Eliot..."):
 
     with st.chat_message("assistant"):
         full_res = ""
+        
         # MODO ZEOX (GROK)
         if "zeox" in prompt.lower():
             st.write(">> 👑 ZEOX...")
@@ -131,20 +141,23 @@ if prompt := st.chat_input("Órdenes, Señor Eliot..."):
                 full_res = res.choices[0].message.content
             except Exception as e: full_res = f"ZEOX Error: {e}"
         
-        # MODO ZEO (GEMINI)
+        # MODO ZEO (GEMINI PRO)
         else:
             if st.session_state.chat_session:
                 try:
                     if archivo:
                         img = Image.open(archivo)
-                        visor = genai.GenerativeModel("gemini-1.5-pro")
+                        # Usamos 1.5 PRO también para ver imagenes
+                        visor = genai.GenerativeModel("gemini-1.5-pro") 
                         response = visor.generate_content([PROMPT_ZEO+"\n"+prompt, img])
                         full_res = response.text
                     else:
                         response = st.session_state.chat_session.send_message(prompt)
                         full_res = response.text
-                except Exception as e: full_res = f"⚠️ Error: {e}"
-            else: full_res = "⚠️ Sin conexión."
+                except Exception as e: full_res = f"⚠️ Error ZEO: {e}"
+            else: 
+                # AQUÍ VERÁS POR QUÉ FALLA SI NO CONECTA
+                full_res = f"⚠️ SIN CONEXIÓN. Diagnóstico Técnico: {st.session_state.debug_info}"
 
         st.markdown(full_res)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
