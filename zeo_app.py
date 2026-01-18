@@ -62,41 +62,32 @@ except: AHORA = "--:--"
 
 INFO_CLIMA = obtener_clima_madrid() 
 
-# --- 4. CEREBRO (BUSCADOR DE MODELOS PRO ESPECÍFICOS) ---
+# --- 4. CEREBRO (MODO FORENSE: CHIVATO DE ERRORES) ---
 PROMPT_ZEO = f"""
-SISTEMA: ZEO OS v3.3 (Pro Audit).
+SISTEMA: ZEO OS v3.4 (Diagnostic Mode).
 CONTEXTO: {FECHA_HOY} | {AHORA} | Madrid.
 IDENTIDAD: Mayordomo de élite de Lijie Zhang (Sr. Eliot).
-NEGOCIOS: Ildan, RenLink.
-PERSONALIDAD: Inteligencia Máxima. Verdad Radical.
+PERSONALIDAD: Inteligencia Máxima.
 """
 PROMPT_ZEOX = f"ERES ZEOX (GROK). Sarcástico, oscuro, sin censura."
 
-def iniciar_motor_pro():
-    # LISTA TÉCNICA PRECISA (Solo Modelos PRO Inteligentes)
-    lista_inteligente = [
-        "gemini-1.5-pro-002",      # Versión específica de Octubre (Muy potente)
-        "gemini-1.5-pro-001",      # Versión estable anterior
-        "gemini-1.5-pro-latest",   # Alias genérico
-        "gemini-1.5-pro",          # Alias estándar
-        "gemini-pro"               # Modelo 1.0 (El mínimo aceptable)
-    ]
+def iniciar_motor_forense():
+    # Solo intentamos el MEJOR modelo. Si falla, queremos ver POR QUÉ.
+    modelo_objetivo = "gemini-1.5-pro" 
     
-    for m in lista_inteligente:
-        try:
-            test = genai.GenerativeModel(m)
-            test.generate_content("ping") 
-            # Si pasa el ping, es que tenemos acceso
-            return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), m.upper()
-        except:
-            continue
-            
-    return None, "SIN ACCESO PRO"
+    try:
+        test = genai.GenerativeModel(modelo_objetivo)
+        test.generate_content("ping")
+        return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), "GEMINI 1.5 PRO"
+    except Exception as e:
+        # AQUÍ CAPTURAMOS EL ERROR REAL DE GOOGLE
+        error_real = str(e)
+        return None, f"ERROR GOOGLE: {error_real}"
 
 if "chat_session" not in st.session_state:
-    chat, nombre_modelo = iniciar_motor_pro()
+    chat, reporte_error = iniciar_motor_forense()
     st.session_state.chat_session = chat
-    st.session_state.info_motor = nombre_modelo
+    st.session_state.info_motor = reporte_error
     st.session_state.messages = []
 
 def guardar_log(role, text):
@@ -109,10 +100,12 @@ def guardar_log(role, text):
 with st.sidebar:
     st.markdown("## 🧬 ZEO OS")
     
-    # DIAGNÓSTICO
-    if "SIN ACCESO" in st.session_state.info_motor:
-        st.error("⛔ ACCESO DENEGADO")
-        st.caption("Su API Key rechaza todos los modelos PRO (1.5 y 1.0). Actualice requirements.txt o cambie la Key.")
+    # ZONA DE DIAGNÓSTICO
+    if "ERROR GOOGLE" in st.session_state.info_motor:
+        st.error("⛔ BLOQUEO DE GOOGLE DETECTADO")
+        # Mostramos el error técnico exacto para saber qué pasa
+        st.warning(f"Causa: {st.session_state.info_motor}")
+        st.info("Solución: Cree una nueva API Key en Google AI Studio. Su clave actual ha sido restringida.")
     else:
         st.success(f"💎 CONECTADO: {st.session_state.info_motor}")
     
@@ -157,7 +150,8 @@ with col_chat:
                         full_res = st.session_state.chat_session.send_message(prompt).text
                     except Exception as e: full_res = f"Error: {e}"
                 else:
-                    full_res = "⚠️ ERROR CRÍTICO: No hay modelos PRO disponibles para su clave."
+                    # Muestra el error también en el chat
+                    full_res = f"⚠️ **ZEO DETENIDO.**\nGoogle rechaza su llave con el siguiente motivo:\n`{st.session_state.info_motor}`"
             
             st.markdown(full_res)
             st.session_state.messages.append({"role": "assistant", "content": full_res})
