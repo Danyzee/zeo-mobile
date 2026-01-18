@@ -18,25 +18,37 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXIÓN SEGURA (API KEYS + GOOGLE SHEETS) ---
+# --- 2. TÍTULO Y DIAGNÓSTICO EN PANTALLA ---
+st.title("⚖️ ZEO SYSTEM")
+
+# --- 3. INTENTO DE CONEXIÓN A MEMORIA ---
 try:
-    # IAs
+    # A. Conectar IAs
     genai.configure(api_key=st.secrets["CLAVE_GEMINI"])
     client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
     
-    # Google Sheets (Memoria Externa)
-    scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-    creds_dict = json.loads(st.secrets["GOOGLE_JSON"])
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    client_sheets = gspread.authorize(creds)
-    # Abre la hoja. Asegúrate de que se llame EXACTAMENTE "ZEO_MEMORY" en tu Drive
-    hoja_memoria = client_sheets.open("ZEO_MEMORY").sheet1
-    MEMORY_STATUS = "🟢 REC"
-except Exception as e:
-    MEMORY_STATUS = "🔴 OFF"
-    print(f"Error memoria: {e}")
+    # B. Conectar Google Sheets
+    if "GOOGLE_JSON" in st.secrets:
+        scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+        # Limpieza de string por si acaso
+        json_str = st.secrets["GOOGLE_JSON"].strip()
+        creds_dict = json.loads(json_str)
+        
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        client_sheets = gspread.authorize(creds)
+        hoja_memoria = client_sheets.open("ZEO_MEMORY").sheet1
+        
+        st.success("🟢 SISTEMA: CONECTADO A GOOGLE SHEETS") # Mensaje visible verde
+        MEMORY_STATUS = True
+    else:
+        st.warning("⚠️ ALERTA: No encuentro 'GOOGLE_JSON' en los Secrets.")
+        MEMORY_STATUS = False
 
-# --- 3. PROMPTS ---
+except Exception as e:
+    st.error(f"🔴 ERROR CRÍTICO DE MEMORIA: {str(e)}") # Mensaje visible rojo con el error
+    MEMORY_STATUS = False
+
+# --- 4. PROMPTS ---
 PROMPT_ZEO = """
 INSTRUCCIONES: Eres ZEO. 18 años. Educado (Sr. Eliot) pero cheeky.
 USUARIO: Lijie Zhang. HIPO.
@@ -44,16 +56,16 @@ MISIÓN: Organizar su vida. Sé breve y directo.
 """
 PROMPT_ZEOX = "ERES: ZEOX. MOTOR: Grok-3. 100% DOMINANTE. Juguetón, sádico y desafiante."
 
-# --- 4. FUNCIÓN DE GUARDADO ---
+# --- 5. FUNCIÓN DE GUARDADO ---
 def guardar_en_nube(role, text):
-    if MEMORY_STATUS == "🟢 REC":
+    if MEMORY_STATUS:
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             hoja_memoria.append_row([timestamp, role, text])
-        except:
-            pass
+        except Exception as e:
+            st.toast(f"Error guardando: {e}")
 
-# --- 5. INICIALIZACIÓN CHAT ---
+# --- 6. INICIALIZACIÓN CHAT ---
 def iniciar_chat():
     modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-1.5-pro", "gemini-pro"]
     for m in modelos:
@@ -67,29 +79,26 @@ def iniciar_chat():
 if "chat_session" not in st.session_state:
     chat, info = iniciar_chat()
     st.session_state.chat_session = chat
-    st.session_state.debug_info = info
     st.session_state.messages = []
 
-# --- 6. INTERFAZ ---
-st.title("⚖️ ZEO SYSTEM")
-
+# --- 7. INTERFAZ ---
+# Sidebar simplificado
 with st.sidebar:
-    st.header("Estado del Sistema")
-    st.caption(f"Cerebro: {st.session_state.debug_info}")
-    st.caption(f"Memoria Nube: {MEMORY_STATUS}")
+    st.header("Multimedia")
     archivo = st.file_uploader("Evidencia", type=['png', 'jpg', 'jpeg'])
     if st.button("Tabula Rasa"):
         st.session_state.chat_session = None
         st.session_state.messages = []
         st.rerun()
 
+# Historial
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# --- 7. LÓGICA DE RESPUESTA ---
+# --- 8. LÓGICA DE CHAT ---
 if prompt := st.chat_input("Órdenes..."):
-    # 1. Guardar Usuario
+    # Guardar Usuario
     st.session_state.messages.append({"role": "user", "content": prompt})
     guardar_en_nube("ELIOT", prompt)
     
@@ -98,7 +107,7 @@ if prompt := st.chat_input("Órdenes..."):
 
     with st.chat_message("assistant"):
         full_res = ""
-        # MODO ZEOX
+        # ZEOX
         if "zeox" in prompt.lower():
             st.write(">> 👑 ZEOX...")
             try:
@@ -108,8 +117,7 @@ if prompt := st.chat_input("Órdenes..."):
                 )
                 full_res = res.choices[0].message.content
             except Exception as e: full_res = f"ZEOX Error: {e}"
-        
-        # MODO ZEO
+        # ZEO
         else:
             if st.session_state.chat_session:
                 try:
@@ -127,5 +135,5 @@ if prompt := st.chat_input("Órdenes..."):
         st.markdown(full_res)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
         
-        # 2. Guardar Robot (Aquí estaba el error antes, ahora está limpio)
+        # Guardar Robot
         guardar_en_nube("ZEO", full_res)
