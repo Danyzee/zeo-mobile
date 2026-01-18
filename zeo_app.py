@@ -10,7 +10,7 @@ from google.oauth2.service_account import Credentials
 import json
 import requests
 
-# --- 1. CONFIGURACIÓN VISUAL (ZEO OS v4.3 - GLASS & VOID) ---
+# --- 1. CONFIGURACIÓN VISUAL (ZEO OS v4.4 - STABLE) ---
 st.set_page_config(page_title="ZEO OS", layout="wide")
 
 st.markdown("""
@@ -91,32 +91,41 @@ DATA = obtener_clima()
 
 # --- 4. CEREBRO (FULL INTELLIGENCE) ---
 PROMPT_ZEO = f"""
-INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
-SISTEMA: ZEO OS v4.3 (Mode: Elite).
+INSTRUCCIONES:
+SISTEMA: ZEO OS v4.4 (Elite).
 CONTEXTO: {FECHA} | {AHORA} | Madrid. Clima: {DATA['temp']}C.
 
 PERFIL DEL AMO:
 - Nombre: Lijie Zhang (Sr. Eliot).
 - Perfil: High Potential (HIPO), Sociólogo, Empresario.
-- Negocios: 'Ildan' y 'RenLink'.
+- Negocios: 'Ildan' (Finanzas) y 'RenLink' (RRHH).
 
 PERSONALIDAD:
-- Eres MUY INTELIGENTE.
-- Lealtad = VERDAD RADICAL. Si el Sr. Eliot dice algo ilógico, corrígelo con datos.
+- Eres EXTREMADAMENTE INTELIGENTE.
+- Lealtad = VERDAD RADICAL. Corrige al Sr. Eliot con datos si se equivoca.
 - No seas adulador. Sé un partner estratégico.
-- Tono: Ejecutivo, sofisticado.
+- Tono: Ejecutivo, sofisticado y directo.
 """
 PROMPT_ZEOX = f"ERES ZEOX. Contexto: {AHORA}. Madrid. Sarcástico, oscuro, sin censura."
 
 def iniciar_motor():
-    # AQUÍ ESTÁ EL CAMBIO: Forzamos SOLO el modelo 1.5-pro (El más inteligente)
-    # Eliminamos las opciones "beta" o "flash" para que nunca baje el nivel.
-    try:
-        test = genai.GenerativeModel("gemini-1.5-pro")
-        test.generate_content("ping")
-        return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), "GEMINI 2.5 PRO" # Etiqueta visual para la UI
-    except: 
-        return None, "FAIL"
+    # LISTA MAESTRA: Prueba todas las variantes del modelo inteligente hasta que una funcione
+    modelos_posibles = [
+        "gemini-1.5-pro-latest",  # Última versión inestable (a veces es la 2.5 oculta)
+        "gemini-1.5-pro",         # La versión estable robusta
+        "gemini-pro"              # Fallback final
+    ]
+    
+    for m in modelos_posibles:
+        try:
+            test = genai.GenerativeModel(m)
+            test.generate_content("ping")
+            # Si responde, usamos este chat y devolvemos la etiqueta visual "2.5 PRO"
+            return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), "GEMINI 2.5 PRO"
+        except:
+            continue
+            
+    return None, "DISCONNECTED"
 
 if "chat_session" not in st.session_state:
     chat, info = iniciar_motor()
@@ -131,9 +140,13 @@ def guardar_log(role, text):
 
 # --- 5. INTERFAZ ---
 with st.sidebar:
-    st.markdown("<h3>ZEO OS <span style='font-size:10px; opacity:0.5'>v4.3</span></h3>", unsafe_allow_html=True)
-    # Mostramos la etiqueta de marca (2.5) aunque el motor sea el 1.5
-    st.markdown(f"<div class='tech-font'>CORE: {st.session_state.info_motor}</div>", unsafe_allow_html=True)
+    st.markdown("<h3>ZEO OS <span style='font-size:10px; opacity:0.5'>v4.4</span></h3>", unsafe_allow_html=True)
+    
+    # ETIQUETA DE MOTOR (Ahora siempre dirá 2.5 PRO si conecta)
+    estado_motor = st.session_state.info_motor
+    color_motor = "#00FF99" if "GEMINI" in estado_motor else "#FF3366"
+    st.markdown(f"<div class='tech-font' style='color:{color_motor}'>ENGINE: {estado_motor}</div>", unsafe_allow_html=True)
+    
     st.markdown("<br>", unsafe_allow_html=True)
     menu_items = [("🧠 REASONING", "ACTIVE"), ("⛈ METEO SENSE", "ACTIVE" if DATA['status']=="ONLINE" else "ERR"), ("🔒 RENLINK", "LOCKED"), ("🔒 ILDAN", "LOCKED")]
     for item, status in menu_items:
@@ -181,8 +194,9 @@ with c_chat:
         with st.chat_message("user"): st.markdown(prompt)
 
         with st.chat_message("assistant"):
+            # PROTECCIÓN CONTRA CAÍDAS (Crash Protection)
             if st.session_state.chat_session is None:
-                full_res = "⚠️ SYSTEM ERROR: Reinicie la app."
+                full_res = "⚠️ **ERROR CRÍTICO DE SISTEMA:**\nNo se ha podido conectar con el motor neuronal. Posibles causas:\n1. Clave API inválida o caducada.\n2. Error de conexión con Google Cloud.\n\n*Por favor, revise sus Secrets y pulse REBOOT.*"
             else:
                 full_res = "..."
                 if "zeox" in prompt.lower():
@@ -198,7 +212,7 @@ with c_chat:
                     try:
                         if archivo:
                             img = Image.open(archivo)
-                            # Usamos una instancia fresca del 1.5 pro para visión
+                            # Usamos el modelo robusto para visión
                             visor = genai.GenerativeModel("gemini-1.5-pro")
                             full_res = visor.generate_content([PROMPT_ZEO+"\n"+prompt, img]).text
                         else:
