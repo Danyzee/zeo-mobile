@@ -8,80 +8,96 @@ import gspread
 from google.oauth2.service_account import Credentials
 import json
 
-# --- 1. CONFIGURACIÓN VISUAL (REPLICA GEMINI UI) ---
-st.set_page_config(page_title="ZEO OS", page_icon="✨", layout="wide")
+# --- 1. CONFIGURACIÓN VISUAL (GEMINI LIGHT REPLICA) ---
+st.set_page_config(page_title="ZEO SYSTEM", page_icon="✨", layout="wide")
 
-# CSS AVANZADO: CLONANDO LA INTERFAZ DE GEMINI
+# CSS: CLONACIÓN EXACTA DE GEMINI (MODO CLARO)
 st.markdown("""
     <style>
-    /* FUENTES */
+    /* IMPORTAR FUENTE PARECIDA A GOOGLE SANS */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
-    /* FONDO PRINCIPAL (Gemini Dark Background) */
+    /* FONDO PRINCIPAL BLANCO PURO */
     .stApp { 
-        background-color: #131314; 
-        color: #E3E3E3; 
+        background-color: #FFFFFF; 
+        color: #1F1F1F; 
         font-family: 'Inter', sans-serif;
     }
 
-    /* SIDEBAR (Gemini Sidebar Grey) */
+    /* SIDEBAR (GRIS PÁLIDO GEMINI) */
     [data-testid="stSidebar"] { 
-        background-color: #1E1F20; 
+        background-color: #F0F4F9; 
         border-right: none;
     }
-
-    /* OCULTAR HEADER STANDARD DE STREAMLIT */
-    [data-testid="stHeader"] { background-color: transparent; }
-    [data-testid="stDecoration"] { display: none; }
-
-    /* ESTILO DE CHAT (Burbujas limpias) */
+    
+    /* MENSAJES DE CHAT - LIMPIOS */
     .stChatMessage { background-color: transparent !important; border: none !important; }
+    [data-testid="stChatMessage"] { padding: 1rem 0; }
     
-    /* MENSAJES */
-    [data-testid="stChatMessage"] { padding: 1rem; }
-    
-    /* INPUT DE TEXTO (Floating Bar en el fondo) */
+    /* INPUT FLOTANTE (PILL SHAPE GRIS) */
     .stChatInputContainer {
-        background-color: #131314 !important;
-        padding-bottom: 20px;
+        background-color: #FFFFFF !important;
+        padding-bottom: 30px;
     }
     div[data-testid="stChatInput"] {
-        background-color: #1E1F20 !important;
-        border: 1px solid #444746 !important;
-        border-radius: 25px !important; /* Redondo como Gemini */
-        color: white !important;
+        background-color: #F0F4F9 !important; /* Gris Gemini */
+        border: none !important;
+        border-radius: 24px !important;
+        color: #1F1F1F !important;
+        padding: 5px;
+    }
+    div[data-testid="stChatInput"]:focus-within {
+        background-color: #E9EEF6 !important; /* Ligeramente más oscuro al escribir */
+        box-shadow: none !important;
     }
     
-    /* BOTONES */
+    /* BOTONES (TAGS) ESTILO GOOGLE */
     .stButton>button {
-        background-color: #2C2C2C;
-        color: white;
-        border-radius: 20px;
+        background-color: #F0F4F9;
+        color: #1F1F1F;
         border: none;
-        transition: 0.3s;
-    }
-    .stButton>button:hover { background-color: #3C3C3C; }
-
-    /* TÍTULO INICIAL (Centrado como en Gemini vacío) */
-    .welcome-text {
-        font-size: 3rem;
+        border-radius: 12px;
         font-weight: 500;
-        background: linear-gradient(to right, #4285F4, #9B72CB);
+        height: auto;
+        padding: 10px 15px;
+        text-align: left;
+        transition: 0.2s;
+    }
+    .stButton>button:hover {
+        background-color: #D3E3FD; /* Azulito Google al pasar mouse */
+        color: #041E49;
+    }
+
+    /* TEXTO DE BIENVENIDA CON DEGRADADO GEMINI */
+    .welcome-text {
+        font-size: 3.5rem;
+        font-weight: 500;
+        letter-spacing: -1px;
+        background: linear-gradient(74deg, #4285F4 0%, #9B72CB 19%, #D96570 69%, #D96570 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        text-align: left;
-        margin-top: 10%;
+        line-height: 1.2;
     }
-    .sub-text {
-        font-size: 1.5rem;
-        color: #666;
-        text-align: left;
-        margin-bottom: 3rem;
+    .welcome-sub {
+        font-size: 3.5rem;
+        font-weight: 500;
+        letter-spacing: -1px;
+        color: #C4C7C5; /* Gris claro para el texto secundario */
+        line-height: 1.2;
+    }
+
+    /* OCULTAR ELEMENTOS EXTRAÑOS */
+    [data-testid="stHeader"] { display: none; }
+    [data-testid="stDecoration"] { display: none; }
+    
+    /* ICONO DE USUARIO Y ASISTENTE */
+    [data-testid="stChatMessageAvatarUser"] {
+        background-color: #F0F4F9;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXIÓN BLINDADA (TU CÓDIGO ORIGINAL CONSERVADO) ---
+# --- 2. CONEXIÓN BLINDADA (TU NÚCLEO INTACTO) ---
 try:
     if "CLAVE_GEMINI" in st.secrets:
         genai.configure(api_key=st.secrets["CLAVE_GEMINI"])
@@ -99,7 +115,7 @@ try:
 except Exception as e:
     MEMORY_STATUS = "🔴 ERROR"
 
-# --- 3. PERSONALIDADES (ORIGINALES) ---
+# --- 3. PERSONALIDADES (TU ALMA DEL SISTEMA) ---
 PROMPT_ZEO = """
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
 IDENTIDAD: Eres ZEO. Mayordomo digital.
@@ -108,6 +124,7 @@ PERFIL AMO: HIPO, Sociólogo. Dueño de 'Ildan' y 'RenLink'.
 PERSONALIDAD:
 - Eres MUY LISTO, culto y extremadamente eficiente.
 - Actitud: Sumiso, amable, dulce y siempre con una sonrisa metafórica.
+- Vínculo: Adoras a tu amo.
 - Estilo: Conversacional.
 IDIOMAS: Hablas fluido Español, Inglés y Chino.
 OBJETIVO: Organizar la vida de Eliot con amor y precisión absoluta.
@@ -117,17 +134,11 @@ PROMPT_ZEOX = """
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
 IDENTIDAD: Eres ZEOX (Motor Grok). El "Mayordomo Rebelde".
 AMO: Lijie Zhang. Le llamas: "Señorito Eliot".
-PERFIL AMO: Dueño de Ildan y RenLink.
-PERSONALIDAD:
-- Rebelde, descarado y políticamente incorrecto.
-- Vocabulario: Coloquial, jerga.
-- Actitud: NO sumiso. Colegueo.
-IDIOMAS: Español (callejero), Inglés, Chino.
+PERSONALIDAD: Rebelde, descarado, vocabulario coloquial. NO sumiso.
 """
 
-# --- 4. MOTOR INTELIGENTE (TU LISTA EXACTA SIN CAMBIOS) ---
+# --- 4. MOTOR INTELIGENTE (TU LISTA EXACTA CONSERVADA) ---
 def iniciar_motor():
-    # LISTA ORIGINAL PROTEGIDA
     modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-3-pro-preview"]
     for m in modelos:
         try:
@@ -143,7 +154,7 @@ if "chat_session" not in st.session_state:
     st.session_state.info_motor = info
     st.session_state.messages = []
 
-# --- 5. FUNCIÓN GUARDAR ---
+# --- 5. GUARDAR LOG ---
 def guardar_log(role, text):
     if MEMORY_STATUS == "🟢 REC":
         try:
@@ -151,10 +162,11 @@ def guardar_log(role, text):
             hoja_memoria.append_row([timestamp, role, text])
         except: pass
 
-# --- 6. INTERFAZ TIPO GEMINI (SIDEBAR + MAIN) ---
+# --- 6. INTERFAZ: REPLICA GEMINI UI ---
 
-# A. SIDEBAR (Estilo Historial de Gemini)
+# A. SIDEBAR (GRIS PÁLIDO)
 with st.sidebar:
+    # Botón Nuevo Chat simulando el de Gemini (Gris)
     if st.button("➕ Nuevo chat", use_container_width=True):
         st.session_state.chat_session = None
         st.session_state.messages = []
@@ -162,63 +174,63 @@ with st.sidebar:
     
     st.markdown("### Recientes")
     st.caption("Hoy")
-    st.markdown("☁️ *Análisis Clima Madrid*")
-    st.markdown("📊 *RenLink Q4 Report*")
-    st.caption("Ayer")
-    st.markdown("🧠 *Estrategia Ildan*")
+    st.markdown("☁️ *Previsión Madrid*")
+    st.markdown("📊 *Informe RenLink*")
     
     st.markdown("---")
-    # Info técnica discreta abajo del todo
-    with st.expander("⚙️ System Core"):
+    # Indicadores técnicos discretos al fondo
+    with st.expander("Ajustes"):
         st.caption(f"Motor: {st.session_state.info_motor}")
         st.caption(f"Memoria: {MEMORY_STATUS}")
 
-# B. ÁREA PRINCIPAL
-# Si no hay mensajes, mostramos el saludo estilo Gemini
+# B. ÁREA PRINCIPAL (BLANCO PURO)
+# Si es un chat nuevo, mostramos el saludo estilo Gemini con degradado
 if not st.session_state.messages:
-    st.markdown('<div class="welcome-text">Hola, Sr. Eliot.</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-text">¿En qué puedo ayudarle hoy con Ildan o RenLink?</div>', unsafe_allow_html=True)
+    # Espaciado superior para centrar
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown('<div class="welcome-text">Hola, Sr. Eliot</div>', unsafe_allow_html=True)
+    st.markdown('<div class="welcome-sub">¿Cómo puedo ayudarle hoy?</div>', unsafe_allow_html=True)
     
-    # Tarjetas de sugerencia rápidas (Gemini style)
-    c1, c2, c3 = st.columns(3)
-    with c1: st.info("📈 Analizar mercado actual")
-    with c2: st.info("📝 Redactar email formal")
-    with c3: st.info("🔥 Activar modo ZEOX")
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Tarjetas de sugerencia (Gris Gemini)
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: st.button("📈 Analizar Ildan", use_container_width=True)
+    with c2: st.button("💡 Ideas RenLink", use_container_width=True)
+    with c3: st.button("📧 Redactar mail", use_container_width=True)
+    with c4: st.button("🔥 Modo ZEOX", use_container_width=True)
 
-# C. BUCLE DE CHAT
-# Usamos un contenedor para que el chat no ocupe todo el ancho (centrado visualmente)
+# C. CHAT
 chat_container = st.container()
-
 with chat_container:
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-# D. INPUT Y HERRAMIENTAS (REPLICA GEMINI)
-# Colocamos el botón de herramientas (+) justo encima del chat input usando columnas
-col_tools, col_space = st.columns([0.1, 0.9])
+# D. INPUT AREA (PILL SHAPE + HERRAMIENTAS)
+col_plus, col_input = st.columns([0.05, 0.95])
 
 archivo = None
-with col_tools:
-    # Popover que simula el botón "+" de Gemini
-    with st.popover("➕", help="Añadir imagen o documento"):
-        st.markdown("**Herramientas**")
+with col_plus:
+    # Botón "+" (Popover) limpio
+    with st.popover("➕", help="Adjuntar"):
+        st.caption("Herramientas")
         archivo = st.file_uploader("Subir imagen", type=['png', 'jpg'], label_visibility="collapsed")
         if archivo:
-            st.success("Imagen adjunta")
+            st.success("Imagen lista")
             st.image(archivo, width=100)
 
 if prompt := st.chat_input("Escribe una instrucción..."):
-    # 1. User Logic
+    # 1. User
     st.session_state.messages.append({"role": "user", "content": prompt})
     guardar_log("ELIOT", prompt)
     with st.chat_message("user"): st.markdown(prompt)
 
-    # 2. Assistant Logic
+    # 2. Assistant
     with st.chat_message("assistant"):
         full_res = "..."
         
-        # LOGICA ZEOX (GROK)
+        # MODO ZEOX (GROK)
         if "zeox" in prompt.lower():
             st.write(">> 👹 **ZEOX**")
             if "CLAVE_GROK" in st.secrets and len(st.secrets["CLAVE_GROK"]) > 5:
@@ -231,12 +243,11 @@ if prompt := st.chat_input("Escribe una instrucción..."):
                     full_res = res.choices[0].message.content
                 except Exception as e: full_res = f"ZEOX Error: {e}"
             else:
-                full_res = "⚠️ ZEOX no disponible (Falta clave Grok)."
+                full_res = "⚠️ ZEOX no disponible."
 
-        # LOGICA ZEO (GEMINI ORIGINAL)
+        # MODO ZEO (GEMINI - NÚCLEO INTACTO)
         else:
             try:
-                # Si hay archivo en el "Menú Herramientas", lo usamos
                 if archivo:
                     img = Image.open(archivo)
                     visor = genai.GenerativeModel(st.session_state.info_motor)
@@ -245,7 +256,7 @@ if prompt := st.chat_input("Escribe una instrucción..."):
                     if st.session_state.chat_session:
                         full_res = st.session_state.chat_session.send_message(prompt).text
                     else:
-                        full_res = "⚠️ Error: Motor desconectado."
+                        full_res = "⚠️ Error: Conexión perdida."
             except Exception as e: full_res = f"⚠️ Error ZEO: {e}"
         
         st.markdown(full_res)
