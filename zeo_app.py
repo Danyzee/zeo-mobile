@@ -7,14 +7,15 @@ from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 import json
+import requests
 
-# --- 1. CONFIGURACIÓN VISUAL (ZEO / GEMINI REPLICA) ---
+# --- 1. CONFIGURACIÓN VISUAL (ZEO GEMINI REPLICA) ---
 st.set_page_config(page_title="Zeo", page_icon="✨", layout="wide")
 
-# CSS: CLONACIÓN VISUAL + ANIMACIÓN DE CARGA
+# --- 2. CSS AVANZADO: REPLICA EXACTA DE GEMINI ---
 st.markdown("""
     <style>
-    /* FUENTE */
+    /* IMPORTAR FUENTE GOOGLE-LIKE */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
     /* BASE */
@@ -23,58 +24,103 @@ st.markdown("""
     /* SIDEBAR */
     [data-testid="stSidebar"] { background-color: #F0F4F9; border-right: none; }
     
-    /* CHAT */
-    .stChatMessage { background-color: transparent !important; border: none !important; }
+    /* OCULTAR ELEMENTOS NATIVOS DE STREAMLIT QUE MOLESTAN */
+    [data-testid="stHeader"] { display: none; }
+    [data-testid="stToolbar"] { display: none; }
+    footer { display: none; }
+
+    /* --- SISTEMA DE CHAT PERSONALIZADO (SIN AVATARES) --- */
     
-    /* INPUT */
-    .stChatInputContainer { background-color: #FFFFFF !important; padding-bottom: 30px; }
+    /* Contenedor del mensaje */
+    .chat-row {
+        display: flex;
+        margin-bottom: 24px;
+        width: 100%;
+    }
+    
+    /* Alineación USUARIO (Derecha) */
+    .row-user { justify-content: flex-end; }
+    
+    /* Alineación ZEO (Izquierda) */
+    .row-assistant { justify-content: flex-start; }
+    
+    /* BURBUJA USUARIO (Gris Gemini) */
+    .bubble-user {
+        background-color: #F0F4F9;
+        color: #1F1F1F;
+        padding: 12px 20px;
+        border-radius: 20px 20px 4px 20px; /* Forma píldora asimétrica */
+        max-width: 70%;
+        font-size: 16px;
+        line-height: 1.6;
+    }
+    
+    /* BURBUJA ZEO (Transparente/Limpio) */
+    .bubble-assistant {
+        background-color: transparent;
+        color: #1F1F1F;
+        padding: 0px 10px;
+        max-width: 85%;
+        font-size: 16px;
+        line-height: 1.6;
+    }
+
+    /* INPUT AREA */
+    .stChatInputContainer { background-color: #FFFFFF !important; padding-bottom: 40px; }
     div[data-testid="stChatInput"] {
         background-color: #F0F4F9 !important;
         border: none !important;
-        border-radius: 24px !important;
+        border-radius: 30px !important;
         color: #1F1F1F !important;
+        padding: 8px;
     }
     
-    /* OCULTAR HEADER */
-    [data-testid="stHeader"] { display: none; }
-    
-    /* ANIMACIÓN DE CARGA TIPO GEMINI (EL CÍRCULO) */
+    /* ANIMACIÓN DE CARGA (GEMINI SPINNER) */
     .gemini-loader {
-        width: 30px;
-        height: 30px;
+        width: 25px;
+        height: 25px;
         border-radius: 50%;
-        background: conic-gradient(#4285F4, #EA4335, #FBBC04, #34A853); /* Colores Google */
+        background: conic-gradient(#4285F4, #EA4335, #FBBC04, #34A853);
         -webkit-mask: radial-gradient(farthest-side, transparent 70%, black 71%);
         mask: radial-gradient(farthest-side, transparent 70%, black 71%);
         animation: spin 1s linear infinite;
-        margin-left: 10px;
     }
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    .thinking-text {
-        font-size: 14px;
-        color: #666;
-        margin-left: 15px;
-        font-style: italic;
-        display: flex;
-        align-items: center;
-    }
-
-    /* TEXTO BIENVENIDA */
-    .welcome-text {
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .thinking-container { display: flex; align-items: center; gap: 15px; margin-top: 20px; }
+    
+    /* BIENVENIDA */
+    .welcome-title {
         font-size: 3.5rem;
         font-weight: 500;
-        letter-spacing: -1px;
+        letter-spacing: -1.5px;
         background: linear-gradient(74deg, #4285F4 0%, #9B72CB 19%, #D96570 69%, #D96570 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
     }
+    .welcome-subtitle {
+        font-size: 2rem;
+        color: #C4C7C5;
+        font-weight: 400;
+    }
+    
+    /* BOTONES SUGERENCIAS */
+    .stButton>button {
+        background-color: #F0F4F9;
+        border: none;
+        border-radius: 12px;
+        color: #444746;
+        text-align: left;
+        height: auto;
+        padding: 15px;
+        transition: 0.2s;
+    }
+    .stButton>button:hover { background-color: #D3E3FD; color: #001d35; }
+    
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXIÓN BLINDADA (NÚCLEO INTACTO) ---
+# --- 3. CONEXIÓN BLINDADA (TU CÓDIGO INTACTO) ---
 try:
     if "CLAVE_GEMINI" in st.secrets:
         genai.configure(api_key=st.secrets["CLAVE_GEMINI"])
@@ -92,7 +138,7 @@ try:
 except Exception as e:
     MEMORY_STATUS = "🔴 ERROR"
 
-# --- 3. PERSONALIDADES (INTACTAS) ---
+# --- 4. PERSONALIDADES (TU ALMA DEL SISTEMA) ---
 PROMPT_ZEO = """
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
 IDENTIDAD: Eres ZEO. Mayordomo digital.
@@ -114,7 +160,7 @@ AMO: Lijie Zhang. Le llamas: "Señorito Eliot".
 PERSONALIDAD: Rebelde, descarado, vocabulario coloquial. NO sumiso.
 """
 
-# --- 4. MOTOR INTELIGENTE (TU LISTA OFICIAL) ---
+# --- 5. MOTOR INTELIGENTE (TU LISTA INTACTA) ---
 def iniciar_motor():
     modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-3-pro-preview"]
     for m in modelos:
@@ -138,9 +184,10 @@ def guardar_log(role, text):
             hoja_memoria.append_row([timestamp, role, text])
         except: pass
 
-# --- 5. INTERFAZ: SIDEBAR "ZEO" ---
+# --- 6. INTERFAZ VISUAL ---
+
+# A. SIDEBAR (Estilo Gemini)
 with st.sidebar:
-    # Nuevo Chat
     if st.button("➕ Nuevo chat", use_container_width=True):
         st.session_state.chat_session = None
         st.session_state.messages = []
@@ -148,38 +195,51 @@ with st.sidebar:
     
     st.markdown("### Recientes")
     st.caption("Hoy")
-    st.markdown("☁️ *Madrid Climate*")
-    st.markdown("📊 *RenLink Data*")
+    st.markdown("☁️ *Madrid Forecast*")
+    st.markdown("📊 *Ildan Strategy*")
     
     st.markdown("---")
-    with st.expander("Ajustes"):
+    with st.expander("System Core"):
         st.caption(f"Motor: {st.session_state.info_motor}")
         st.caption(f"Memoria: {MEMORY_STATUS}")
 
-# --- 6. PANTALLA PRINCIPAL ---
+# B. PANTALLA PRINCIPAL (Renderizado HTML Personalizado)
 
-# Mensaje de bienvenida si está vacío
+# 1. Mensaje de Bienvenida (Si está vacío)
 if not st.session_state.messages:
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown('<div class="welcome-text">Hola, Sr. Eliot</div>', unsafe_allow_html=True)
-    st.markdown('<h2 style="color: #C4C7C5; font-weight: 400;">¿Cómo puedo ayudarle hoy?</h2>', unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="welcome-title">Hola, Sr. Eliot</div>', unsafe_allow_html=True)
+    st.markdown('<div class="welcome-subtitle">¿En qué puedo ayudarle hoy?</div>', unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
     
-    # Tarjetas
     c1, c2, c3, c4 = st.columns(4)
     with c1: st.button("📈 Ildan Reports", use_container_width=True)
-    with c2: st.button("💡 RenLink Strategy", use_container_width=True)
+    with c2: st.button("💡 RenLink Plan", use_container_width=True)
     with c3: st.button("📧 Escribir Email", use_container_width=True)
     with c4: st.button("🔥 Modo ZEOX", use_container_width=True)
 
-# Contenedor del Chat
-chat_container = st.container()
-with chat_container:
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+# 2. RENDERIZADO DEL CHAT (Aquí está el cambio clave para quitar avatares y alinear)
+# Usamos un contenedor para pintar HTML puro en lugar de st.chat_message
+chat_placeholder = st.container()
 
-# --- 7. INPUT Y RESPUESTA CON ANIMACIÓN ---
+with chat_placeholder:
+    for msg in st.session_state.messages:
+        if msg["role"] == "user":
+            # USUARIO A LA DERECHA (Burbuja Gris)
+            st.markdown(f"""
+                <div class="chat-row row-user">
+                    <div class="bubble-user">{msg["content"]}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            # ZEO A LA IZQUIERDA (Sin burbuja, texto limpio)
+            st.markdown(f"""
+                <div class="chat-row row-assistant">
+                    <div class="bubble-assistant">{msg["content"]}</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+# 3. INPUT AREA
 col_plus, col_input = st.columns([0.05, 0.95])
 archivo = None
 with col_plus:
@@ -188,52 +248,67 @@ with col_plus:
         if archivo: st.image(archivo, width=100)
 
 if prompt := st.chat_input("Escribe a Zeo..."):
-    # 1. Mostrar User
+    # Guardar y pintar mensaje USUARIO (Derecha)
     st.session_state.messages.append({"role": "user", "content": prompt})
     guardar_log("ELIOT", prompt)
-    with st.chat_message("user"): st.markdown(prompt)
+    # Pintamos manualmente para que aparezca instantáneo
+    st.markdown(f"""
+        <div class="chat-row row-user">
+            <div class="bubble-user">{prompt}</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # 2. GENERACIÓN DE RESPUESTA CON ANIMACIÓN "GEMINI LOADER"
-    with st.chat_message("assistant"):
-        # AQUI ESTÁ LA MAGIA: Un placeholder vacío
-        placeholder = st.empty()
-        
-        # Inyectamos el círculo giratorio de colores
-        placeholder.markdown("""
-            <div class="thinking-text">
-                <div class="gemini-loader"></div>
-                &nbsp;&nbsp;Zeo está pensando...
-            </div>
-        """, unsafe_allow_html=True)
+    # Lógica y Animación ZEO
+    placeholder_loading = st.empty()
+    placeholder_loading.markdown("""
+        <div class="thinking-container">
+            <div class="gemini-loader"></div>
+            <span style="color:#666; font-style:italic;">Zeo está pensando...</span>
+        </div>
+    """, unsafe_allow_html=True)
 
-        # 3. Lógica del Cerebro (Mientra la animación gira)
-        full_res = "..."
-        if "zeox" in prompt.lower():
-            if "CLAVE_GROK" in st.secrets and len(st.secrets["CLAVE_GROK"]) > 5:
-                try:
-                    client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
-                    res = client_grok.chat.completions.create(
-                        model="grok-3",
-                        messages=[{"role": "system", "content": PROMPT_ZEOX}, {"role": "user", "content": prompt}]
-                    )
-                    full_res = ">> 👹 **ZEOX:**\n\n" + res.choices[0].message.content
-                except Exception as e: full_res = f"ZEOX Error: {e}"
-            else: full_res = "⚠️ ZEOX no disponible."
-        else:
+    full_res = "..."
+    
+    # LÓGICA DE RESPUESTA (TU NÚCLEO)
+    if "zeox" in prompt.lower():
+        if "CLAVE_GROK" in st.secrets and len(st.secrets["CLAVE_GROK"]) > 5:
             try:
-                if archivo:
-                    img = Image.open(archivo)
-                    visor = genai.GenerativeModel(st.session_state.info_motor)
-                    full_res = visor.generate_content([PROMPT_ZEO+"\n"+prompt, img]).text
-                else:
-                    if st.session_state.chat_session:
-                        full_res = st.session_state.chat_session.send_message(prompt).text
-                    else: full_res = "⚠️ Error: Conexión perdida."
-            except Exception as e: full_res = f"⚠️ Error ZEO: {e}"
-        
-        # 4. Limpiamos la animación y mostramos el texto real
-        placeholder.empty()
-        st.markdown(full_res)
-        
-        st.session_state.messages.append({"role": "assistant", "content": full_res})
-        guardar_log("ZEO", full_res)
+                client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
+                res = client_grok.chat.completions.create(
+                    model="grok-3",
+                    messages=[{"role": "system", "content": PROMPT_ZEOX}, {"role": "user", "content": prompt}]
+                )
+                full_res = ">> 👹 **ZEOX:**\n\n" + res.choices[0].message.content
+            except Exception as e: full_res = f"ZEOX Error: {e}"
+        else: full_res = "⚠️ ZEOX no disponible."
+    else:
+        try:
+            if archivo:
+                img = Image.open(archivo)
+                visor = genai.GenerativeModel(st.session_state.info_motor)
+                full_res = visor.generate_content([PROMPT_ZEO+"\n"+prompt, img]).text
+            else:
+                if st.session_state.chat_session:
+                    full_res = st.session_state.chat_session.send_message(prompt).text
+                else: full_res = "⚠️ Error: Conexión perdida."
+        except Exception as e: full_res = f"⚠️ Error ZEO: {e}"
+    
+    # Limpiar animación y pintar respuesta ZEO (Izquierda)
+    placeholder_loading.empty()
+    st.markdown(f"""
+        <div class="chat-row row-assistant">
+            <div class="bubble-assistant">{full_res}</div>
+        </div>
+    """, unsafe_allow_html=True) # Nota: Markdown dentro de HTML puede perder formato rico, pero texto plano va perfecto.
+    
+    # Si la respuesta tiene markdown complejo (tablas, código), usamos st.markdown normal para asegurar renderizado
+    # Pero para mantener el flujo visual, el bloque de arriba es para texto puro.
+    # Hack para que el markdown se renderice bien si es complejo:
+    if "```" in full_res or "**" in full_res:
+         st.markdown(full_res) # Se pintará abajo, es un compromiso técnico de Streamlit.
+    
+    st.session_state.messages.append({"role": "assistant", "content": full_res})
+    guardar_log("ZEO", full_res)
+    
+    # Forzamos recarga para que el historial se pinte bien en el bucle principal
+    st.rerun()
