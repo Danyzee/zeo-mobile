@@ -12,7 +12,6 @@ import requests
 # --- 1. CONFIGURACIÓN VISUAL (GEMINI REPLICA) ---
 st.set_page_config(page_title="Zeo", page_icon="✨", layout="wide")
 
-# CSS: ESTÉTICA EXACTA A GEMINI + HTML CHAT
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
@@ -53,7 +52,7 @@ st.markdown("""
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .thinking-container { display: flex; align-items: center; gap: 15px; margin-top: 20px; }
     
-    /* WELCOME */
+    /* WELCOME & TEXTS */
     .welcome-title {
         font-size: 3.5rem; font-weight: 500; letter-spacing: -1.5px;
         background: linear-gradient(74deg, #4285F4 0%, #9B72CB 19%, #D96570 69%, #D96570 100%);
@@ -69,7 +68,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXIÓN BLINDADA + CARGA DE MEMORIA COMPLETA ---
+# --- 2. CONEXIÓN BLINDADA + CARGA MEMORIA ---
 try:
     if "CLAVE_GEMINI" in st.secrets:
         genai.configure(api_key=st.secrets["CLAVE_GEMINI"])
@@ -87,20 +86,14 @@ try:
 except Exception as e:
     MEMORY_STATUS = "🔴 ERROR"
 
-# --- FUNCIÓN: RECUPERAR TODO EL EXCEL ---
+# FUNCIÓN DE MEMORIA INFINITA
 def obtener_memoria_total():
-    """Lee TODAS las filas del Excel para dárselas a ZEO."""
     if MEMORY_STATUS == "🟢 REC":
         try:
-            # Obtenemos TODOS los valores de la hoja
             datos = hoja_memoria.get_all_values()
-            
-            # Si hay datos, procesamos todo (saltando la cabecera si existe, opcional)
             if len(datos) > 1:
                 texto_memoria = ""
-                # Iteramos sobre TODAS las filas
                 for fila in datos:
-                    # Formato: [FECHA] ROL: Lo que se dijo
                     if len(fila) >= 3:
                         texto_memoria += f"[{fila[0]}] {fila[1]}: {fila[2]}\n"
                 return texto_memoria
@@ -108,20 +101,61 @@ def obtener_memoria_total():
         except: return "Error leyendo memoria total."
     return "Memoria inactiva."
 
-# CARGAMOS TODO EL EXCEL EN UNA VARIABLE AL INICIO
 RECUERDOS_TOTALES = obtener_memoria_total()
 
-# --- 3. PERSONALIDADES (CON MEMORIA INFINITA INYECTADA) ---
+# --- 3. NUEVO SISTEMA: ANALISTA DE PERFIL (META-COGNICIÓN) ---
+if "perfil_psicologico" not in st.session_state:
+    st.session_state.perfil_psicologico = "Perfil no generado. Pulse el botón en el menú."
+
+def generar_perfil_analitico():
+    """Usa Gemini para analizar el Excel y crear el perfil del Sr. Eliot."""
+    if MEMORY_STATUS != "🟢 REC":
+        return "Error: No hay memoria conectada para analizar."
+    
+    prompt_analista = f"""
+    Contexto: Eres un analista de perfiles de élite especializado en la simbiosis humano-IA.
+    OBJETIVO: Analizar el siguiente registro de conversaciones entre "Señor Eliot" (Lijie Zhang) y su IA "ZEO".
+    
+    REGISTRO DE CONVERSACIONES (EXCEL):
+    {RECUERDOS_TOTALES}
+    
+    INSTRUCCIONES:
+    Genera un "Perfil Psico-Profesional" detallado siguiendo ESTRICTAMENTE este formato Markdown:
+    
+    # Perfil Psico-Profesional: Señor Eliot (Lijie Zhang)
+    ## 1. Modelos Mentales y Patrones de Pensamiento
+    (Analiza pensamiento conectivo, asimetrías, primeros principios...)
+    ## 2. Objetivos Estratégicos (Inferidos)
+    (Misión Ildan, Misión RenLink, Meta-objetivo personal...)
+    ## 3. Estilo de Comunicación e Interacción
+    (Cómo interroga, cómo corrige, uso de Zeo vs Zeox...)
+    ## 4. Red Semántica Clave
+    (Entidades, conceptos, relaciones...)
+    
+    SÉ CONCISO Y PROFUNDO. BASADO SOLO EN EL TEXTO.
+    """
+    
+    try:
+        model = genai.GenerativeModel("gemini-1.5-pro") # Usamos el modelo más potente para el análisis
+        response = model.generate_content(prompt_analista)
+        return response.text
+    except Exception as e:
+        return f"Error generando perfil: {e}"
+
+# --- 4. PERSONALIDADES (CON MEMORIA + PERFIL PSICOLÓGICO INYECTADO) ---
 PROMPT_ZEO = f"""
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
 IDENTIDAD: Eres ZEO. Mayordomo digital.
 AMO: Lijie Zhang (章黎杰). Le llamas: "Señor Eliot".
-PERFIL AMO: HIPO, Sociólogo. Dueño de 'Ildan' y 'RenLink'.
 
-[MEMORIA TOTAL DEL SISTEMA]
-A continuación tienes el registro COMPLETO de todas vuestras conversaciones pasadas extraído del Excel.
-ÚSALO PARA RESPONDER CON PRECISIÓN HISTÓRICA.
-SI TE PIDE RESCATAR UN DATO DE HACE MESES, BÚSCALO AQUÍ ABAJO.
+[1. PERFIL PSICOLÓGICO DEL AMO - CONTEXTO PROFUNDO]
+Este es el análisis de quién es tu amo. Úsalo para anticiparte a sus necesidades:
+--------------------------------------------------
+{st.session_state.perfil_psicologico}
+--------------------------------------------------
+
+[2. MEMORIA EPISÓDICA TOTAL]
+Registro histórico de hechos:
 --------------------------------------------------
 {RECUERDOS_TOTALES}
 --------------------------------------------------
@@ -142,14 +176,13 @@ AMO: Lijie Zhang. Le llamas: "Señorito Eliot".
 PERSONALIDAD: Rebelde, descarado, vocabulario coloquial. NO sumiso.
 """
 
-# --- 4. MOTOR INTELIGENTE (INTACTO) ---
+# --- 5. MOTOR INTELIGENTE ---
 def iniciar_motor():
     modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-3-pro-preview"]
     for m in modelos:
         try:
             test = genai.GenerativeModel(m)
             test.generate_content("ping")
-            # Inyectamos el Prompt con la memoria total
             return test.start_chat(history=[{"role": "user", "parts": [PROMPT_ZEO]}]), m
         except: continue
     return None, "⚠️ Error Motor"
@@ -167,7 +200,7 @@ def guardar_log(role, text):
             hoja_memoria.append_row([timestamp, role, text])
         except: pass
 
-# --- 5. INTERFAZ VISUAL (GEMINI REPLICA) ---
+# --- 6. INTERFAZ VISUAL ---
 
 # A. SIDEBAR
 with st.sidebar:
@@ -176,12 +209,26 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
     
-    st.markdown("### Recientes")
-    st.caption("Memoria Total")
-    # Indicamos visualmente que la memoria completa está activa
-    st.success("📚 Full History Loaded")
+    st.markdown("### Inteligencia")
     
+    # BOTÓN DE ANÁLISIS DE PERFIL
+    if st.button("🧠 Generar Perfil Eliot", use_container_width=True):
+        with st.spinner("Analizando miles de datos del Excel..."):
+            perfil = generar_perfil_analitico()
+            st.session_state.perfil_psicologico = perfil
+            # Reiniciamos el chat para que el nuevo prompt surta efecto
+            st.session_state.chat_session = None 
+            st.rerun()
+    
+    # Mostramos un resumen si existe
+    if len(st.session_state.perfil_psicologico) > 50:
+        with st.expander("Ver Perfil Actual"):
+            st.markdown(st.session_state.perfil_psicologico)
+
     st.markdown("---")
+    st.markdown("### Recientes")
+    st.caption("Memoria & Perfil Activos")
+    
     with st.expander("System Core"):
         st.caption(f"Motor: {st.session_state.info_motor}")
         st.caption(f"Memoria: {MEMORY_STATUS}")
@@ -190,30 +237,31 @@ with st.sidebar:
 if not st.session_state.messages:
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown('<div class="welcome-title">Hola, Sr. Eliot</div>', unsafe_allow_html=True)
-    st.markdown('<div class="welcome-subtitle">He leído todo su historial. ¿Por dónde empezamos?</div>', unsafe_allow_html=True)
+    
+    subtitulo = "¿Qué plan tenemos hoy?"
+    if "Perfil no generado" not in st.session_state.perfil_psicologico:
+        subtitulo = "Te entiendo mejor que nunca. ¿En qué trabajamos?"
+        
+    st.markdown(f'<div class="welcome-subtitle">{subtitulo}</div>', unsafe_allow_html=True)
     st.markdown("<br><br>", unsafe_allow_html=True)
     
     c1, c2, c3, c4 = st.columns(4)
-    with c1: st.button("📈 Ildan Reports", use_container_width=True)
-    with c2: st.button("💡 RenLink Plan", use_container_width=True)
-    with c3: st.button("📧 Escribir Email", use_container_width=True)
+    with c1: st.button("📈 Ildan Strategy", use_container_width=True)
+    with c2: st.button("💡 RenLink HIPO", use_container_width=True)
+    with c3: st.button("📧 Email Formal", use_container_width=True)
     with c4: st.button("🔥 Modo ZEOX", use_container_width=True)
 
-# 2. CHAT RENDER (SIN AVATARES)
+# 2. CHAT RENDER
 chat_placeholder = st.container()
 
 with chat_placeholder:
     for msg in st.session_state.messages:
         if msg["role"] == "user":
-            st.markdown(f"""
-                <div class="chat-row row-user"><div class="bubble-user">{msg["content"]}</div></div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="chat-row row-user"><div class="bubble-user">{msg["content"]}</div></div>""", unsafe_allow_html=True)
         else:
-            st.markdown(f"""
-                <div class="chat-row row-assistant"><div class="bubble-assistant">{msg["content"]}</div></div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="chat-row row-assistant"><div class="bubble-assistant">{msg["content"]}</div></div>""", unsafe_allow_html=True)
 
-# 3. INPUT AREA
+# 3. INPUT
 col_plus, col_input = st.columns([0.05, 0.95])
 archivo = None
 with col_plus:
@@ -222,21 +270,18 @@ with col_plus:
         if archivo: st.image(archivo, width=100)
 
 if prompt := st.chat_input("Escribe a Zeo..."):
-    # User
     st.session_state.messages.append({"role": "user", "content": prompt})
     guardar_log("ELIOT", prompt)
     st.markdown(f"""<div class="chat-row row-user"><div class="bubble-user">{prompt}</div></div>""", unsafe_allow_html=True)
 
-    # Animación
     placeholder_loading = st.empty()
     placeholder_loading.markdown("""
         <div class="thinking-container">
-            <div class="gemini-loader"></div><span style="color:#666; font-style:italic;">Consultando historial completo...</span>
+            <div class="gemini-loader"></div><span style="color:#666; font-style:italic;">Consultando perfil y memoria...</span>
         </div>""", unsafe_allow_html=True)
 
     full_res = "..."
     
-    # LÓGICA RESPUESTA
     if "zeox" in prompt.lower():
         if "CLAVE_GROK" in st.secrets and len(st.secrets["CLAVE_GROK"]) > 5:
             try:
@@ -257,7 +302,11 @@ if prompt := st.chat_input("Escribe a Zeo..."):
             else:
                 if st.session_state.chat_session:
                     full_res = st.session_state.chat_session.send_message(prompt).text
-                else: full_res = "⚠️ Error: Conexión perdida."
+                else: 
+                    # Intento de reconexión si se pierde la sesión por el cambio de perfil
+                    chat, info = iniciar_motor()
+                    st.session_state.chat_session = chat
+                    full_res = st.session_state.chat_session.send_message(prompt).text
         except Exception as e: full_res = f"⚠️ Error ZEO: {e}"
     
     placeholder_loading.empty()
