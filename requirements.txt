@@ -1,14 +1,13 @@
 streamlit
+google-generativeai>=0.8.3
 openai
 Pillow
 gspread
 google-auth
-pytz
 requests
-# Mantenemos su versión moderna de Google
-google-generativeai>=0.8.3
-# Usamos el último AutoGen (0.2.35+) que ya soporta Pydantic v2
-pyautogen>=0.2.35
-# Forzamos librerías auxiliares modernas para evitar choques
-pydantic>=2.0.0
-typing_extensions>=4.9.0
+pytz
+# --- LA CLAVE DEL ÉXITO ---
+# Bloqueamos la versión exacta que sabemos que funciona con tu código
+pyautogen==0.2.27
+pydantic==2.6.3
+typing_extensions==4.9.0
