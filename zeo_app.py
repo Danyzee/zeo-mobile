@@ -79,84 +79,104 @@ def obtener_memoria_total():
 
 RECUERDOS_TOTALES = obtener_memoria_total()
 
-# --- 3. NUEVA FUNCIÓN: GEOCODIFICACIÓN INVERSA (NOMINATIM) ---
+# --- 3. NUEVO: SISTEMA HÍBRIDO DE GEOCODIFICACIÓN ---
 def get_address_from_coords(latitude, longitude):
-    """Traduce coordenadas a dirección física usando OpenStreetMap."""
-    headers = {'User-Agent': 'ZEO_Assistant/1.0 (Contacto: zeo_user@gmail.com)'}
-    
+    """
+    Intenta usar Google Maps (Premium). Si falla, usa OpenStreetMap (Backup).
+    """
+    # Limpieza previa de coordenadas (comas a puntos)
+    lat_clean = str(latitude).replace(',', '.').strip()
+    lon_clean = str(longitude).replace(',', '.').strip()
+
+    # 1. INTENTO PREMIUM: GOOGLE MAPS
+    if "CLAVE_GOOGLE_MAPS" in st.secrets:
+        try:
+            api_key = st.secrets["CLAVE_GOOGLE_MAPS"]
+            url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={lat_clean},{lon_clean}&key={api_key}&language=es"
+            
+            response = requests.get(url, timeout=3)
+            data = response.json()
+            
+            if data['status'] == 'OK':
+                resultado = data['results'][0]
+                direccion_completa = resultado['formatted_address']
+                
+                # Extraemos calle y número si es posible
+                componentes = resultado['address_components']
+                calle = next((c['long_name'] for c in componentes if 'route' in c['types']), "Calle")
+                numero = next((c['long_name'] for c in componentes if 'street_number' in c['types']), "")
+                
+                return {
+                    'direccion_completa': direccion_completa,
+                    'calle': f"{calle}, {numero}".strip(', '),
+                    'proveedor': '💎 Google Maps',
+                    'error': None
+                }
+        except:
+            pass # Si falla Google, pasamos al Plan B silenciosamente
+
+    # 2. PLAN B: OPENSTREETMAP (Gratis)
     try:
-        # Sanitización de entrada (Comas por puntos, a float)
-        lat_clean = str(latitude).replace(',', '.').strip()
-        lon_clean = str(longitude).replace(',', '.').strip()
-        
+        headers = {'User-Agent': 'ZEO_Assistant/1.0'}
         url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat_clean}&lon={lon_clean}&zoom=18&addressdetails=1"
         
         response = requests.get(url, headers=headers, timeout=5)
         data = response.json()
         
-        if 'error' in data:
-            return {'error': "Ubicación no mapeable"}
-            
+        if 'error' in data: return {'error': "Ubicación no mapeable"}
+        
         address = data.get('address', {})
-        calle = address.get('road', '') or address.get('pedestrian', '') or address.get('street', '')
+        calle = address.get('road', '') or address.get('pedestrian', '')
         numero = address.get('house_number', '')
-        ciudad = address.get('city', '') or address.get('town', '') or address.get('village', '') or address.get('county', '')
+        ciudad = address.get('city', '') or address.get('town', '')
         
-        # Construcción de string legible
-        partes = []
-        if calle: partes.append(calle)
-        if numero: partes.append(numero)
-        if ciudad: partes.append(ciudad)
-        
-        direccion_completa = ", ".join(partes) if partes else "Ubicación remota sin calle"
+        partes = [p for p in [calle, numero, ciudad] if p]
         
         return {
-            'calle': calle,
-            'numero': numero,
-            'ciudad': ciudad,
-            'direccion_completa': direccion_completa,
+            'direccion_completa': ", ".join(partes),
+            'calle': f"{calle} {numero}".strip(),
+            'proveedor': '🌍 OpenStreet',
             'error': None
         }
-        
     except Exception as e:
-        return {'error': f"Error Geo: {str(e)}"}
+        return {'error': f"Error Total: {str(e)}"}
 
-# --- 4. SISTEMA DE LECTURA GPS (INTEGRADO) ---
+# --- 4. SISTEMA DE LECTURA GPS ---
 def get_real_location():
-    """Lee coordenadas del Excel y obtiene la dirección real."""
-    if GPS_STATUS != "🟢 LINKED":
-        return {'error': "Falta pestaña GPS"}
+    """Lee coordenadas del Excel (ya corregidas con comas) y obtiene dirección."""
+    if GPS_STATUS != "🟢 LINKED": return {'error': "Falta pestaña GPS"}
     
     try:
-        # Leemos Excel (Fila 2)
         lat = hoja_gps.acell('A2').value
         lon = hoja_gps.acell('B2').value
         updated = hoja_gps.acell('D2').value
         
         if lat and lon:
-            # LLAMADA A LA NUEVA FUNCIÓN DE DIRECCIONES
+            # Llamada al sistema híbrido
             info_direccion = get_address_from_coords(lat, lon)
             
-            direccion_final = info_direccion.get('direccion_completa', 'Coordenadas sin mapa')
-            if info_direccion.get('error'):
-                direccion_final = f"Coords: {lat}, {lon}"
+            direccion_final = info_direccion.get('direccion_completa', f"Coords: {lat}, {lon}")
+            proveedor = info_direccion.get('proveedor', 'N/A')
             
             return {
                 'latitud': lat,
                 'longitud': lon,
-                'direccion': direccion_final, # AQUÍ ESTÁ EL DATO CLAVE
+                'direccion': direccion_final,
+                'proveedor': proveedor,
                 'updated': updated,
                 'error': None
             }
-        else:
-            return {'error': "Esperando móvil..."}
-    except Exception as e:
-        return {'error': str(e)}
+        else: return {'error': "Esperando móvil..."}
+    except Exception as e: return {'error': str(e)}
 
 # --- 5. CLIMA ---
 def get_weather(lat=None, lon=None):
     if "CLAVE_WEATHER" not in st.secrets: return {'error': "Falta Key Clima"}
     api_key = st.secrets["CLAVE_WEATHER"]
+    # Limpiamos coords para clima también
+    if lat: lat = str(lat).replace(',', '.')
+    if lon: lon = str(lon).replace(',', '.')
+    
     url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric&lang=es" if lat and lon else f"https://api.openweathermap.org/data/2.5/weather?q=Madrid&appid={api_key}&units=metric&lang=es"
     try:
         r = requests.get(url, timeout=3)
@@ -170,11 +190,9 @@ def get_weather(lat=None, lon=None):
 DATOS_GPS = get_real_location()
 
 if DATOS_GPS.get('error') is None:
-    # Si hay GPS, usamos sus datos
     DATOS_CLIMA = get_weather(DATOS_GPS['latitud'], DATOS_GPS['longitud'])
-    # Aquí mostramos la calle bonita en lugar de números feos
     UBI_TEXTO = f"{DATOS_GPS['direccion']} (Act: {DATOS_GPS.get('updated','?')})"
-    ESTADO_GPS_VISUAL = "📡 GPS EXACTO"
+    ESTADO_GPS_VISUAL = f"📡 {DATOS_GPS.get('proveedor', 'GPS')}"
 else:
     DATOS_CLIMA = get_weather()
     UBI_TEXTO = "Ubicación desconocida (Default: Madrid)"
@@ -197,11 +215,11 @@ def generar_perfil():
 CONTEXTO_SITUACIONAL = f"""
 [SITUACIÓN REAL]
 - Fecha/Hora: {FECHA_ACTUAL} | {HORA_ACTUAL}
-- DIRECCIÓN ACTUAL (GPS): {UBI_TEXTO}
+- DIRECCIÓN EXACTA: {UBI_TEXTO}
 - Clima Local: {DATOS_CLIMA.get('temp', '--')}°C, {DATOS_CLIMA.get('desc', '')}.
 """
 
-# --- 7. PERSONALIDADES (NÚCLEO) ---
+# --- 7. PERSONALIDADES ---
 PROMPT_ZEO = f"""
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
 IDENTIDAD: Eres ZEO. Mayordomo digital.
@@ -256,12 +274,12 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
     
-    # WIDGET GPS REAL CON CALLE
+    # WIDGET PREMIUM
     st.markdown(f"""
     <div class="info-widget">
         <div class="widget-title">{ESTADO_GPS_VISUAL}</div>
         <div class="widget-value">{int(DATOS_CLIMA.get('temp', 0))}°C <span style="font-size:14px; font-weight:400">{DATOS_CLIMA.get('desc','')}</span></div>
-        <div class="widget-sub">📍 {DATOS_GPS.get('direccion', 'Calculando calle...')}</div>
+        <div class="widget-sub">📍 {DATOS_GPS.get('direccion', 'Calculando...')}</div>
         <div class="widget-sub" style="color:#AAA; font-size:10px; margin-top:5px">🕒 {HORA_ACTUAL}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -279,9 +297,8 @@ with st.sidebar:
 if not st.session_state.messages:
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown('<div class="welcome-title">Hola, Sr. Eliot</div>', unsafe_allow_html=True)
-    # Mostramos la calle en el saludo
     calle_actual = DATOS_GPS.get('direccion', 'Madrid')
-    st.markdown(f'<div class="welcome-subtitle">Localizado en: {calle_actual}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="welcome-subtitle">Ubicación exacta: {calle_actual}</div>', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
     c1, c2, c3, c4 = st.columns(4)
@@ -310,7 +327,7 @@ if prompt := st.chat_input("Escribe a Zeo..."):
     st.markdown(f"""<div class="chat-row row-user"><div class="bubble-user">{prompt}</div></div>""", unsafe_allow_html=True)
 
     placeholder_loading = st.empty()
-    placeholder_loading.markdown("""<div class="thinking-container"><div class="gemini-loader"></div><span style="color:#666;">Analizando entorno...</span></div>""", unsafe_allow_html=True)
+    placeholder_loading.markdown("""<div class="thinking-container"><div class="gemini-loader"></div><span style="color:#666;">Conectando Google Maps...</span></div>""", unsafe_allow_html=True)
 
     full_res = "..."
     if "zeox" in prompt.lower():
