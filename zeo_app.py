@@ -26,10 +26,13 @@ st.markdown("""
     .bubble-assistant { background-color: transparent; color: #1F1F1F; padding: 0px 10px; max-width: 85%; font-size: 16px; line-height: 1.6; }
     .stChatInputContainer { background-color: #FFFFFF !important; padding-bottom: 40px; }
     div[data-testid="stChatInput"] { background-color: #F0F4F9 !important; border: none !important; border-radius: 30px !important; color: #1F1F1F !important; padding: 8px; }
+    
+    /* WIDGET PREMIUM */
     .info-widget { background: #FFFFFF; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid #E5E7EB; }
-    .widget-title { font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 1px; }
+    .widget-title { font-size: 10px; font-weight: 700; color: #999; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 1px; display: flex; justify-content: space-between;}
     .widget-value { font-size: 18px; font-weight: 600; color: #1F1F1F; }
     .widget-sub { font-size: 13px; color: #666; margin-top: 2px;}
+    
     .gemini-loader { width: 25px; height: 25px; border-radius: 50%; background: conic-gradient(#4285F4, #EA4335, #FBBC04, #34A853); -webkit-mask: radial-gradient(farthest-side, transparent 70%, black 71%); mask: radial-gradient(farthest-side, transparent 70%, black 71%); animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .thinking-container { display: flex; align-items: center; gap: 15px; margin-top: 20px; }
@@ -79,16 +82,15 @@ def obtener_memoria_total():
 
 RECUERDOS_TOTALES = obtener_memoria_total()
 
-# --- 3. NUEVO: SISTEMA HÍBRIDO DE GEOCODIFICACIÓN ---
+# --- 3. SISTEMA HÍBRIDO DE GEOCODIFICACIÓN (Google + OSM) ---
 def get_address_from_coords(latitude, longitude):
     """
     Intenta usar Google Maps (Premium). Si falla, usa OpenStreetMap (Backup).
     """
-    # Limpieza previa de coordenadas (comas a puntos)
     lat_clean = str(latitude).replace(',', '.').strip()
     lon_clean = str(longitude).replace(',', '.').strip()
 
-    # 1. INTENTO PREMIUM: GOOGLE MAPS
+    # A. INTENTO PREMIUM: GOOGLE MAPS
     if "CLAVE_GOOGLE_MAPS" in st.secrets:
         try:
             api_key = st.secrets["CLAVE_GOOGLE_MAPS"]
@@ -103,7 +105,7 @@ def get_address_from_coords(latitude, longitude):
                 
                 # Extraemos calle y número si es posible
                 componentes = resultado['address_components']
-                calle = next((c['long_name'] for c in componentes if 'route' in c['types']), "Calle")
+                calle = next((c['long_name'] for c in componentes if 'route' in c['types']), "Calle desconocida")
                 numero = next((c['long_name'] for c in componentes if 'street_number' in c['types']), "")
                 
                 return {
@@ -113,9 +115,9 @@ def get_address_from_coords(latitude, longitude):
                     'error': None
                 }
         except:
-            pass # Si falla Google, pasamos al Plan B silenciosamente
+            pass # Si falla Google, continuamos al Plan B
 
-    # 2. PLAN B: OPENSTREETMAP (Gratis)
+    # B. PLAN B: OPENSTREETMAP (Gratis)
     try:
         headers = {'User-Agent': 'ZEO_Assistant/1.0'}
         url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat_clean}&lon={lon_clean}&zoom=18&addressdetails=1"
@@ -141,39 +143,63 @@ def get_address_from_coords(latitude, longitude):
     except Exception as e:
         return {'error': f"Error Total: {str(e)}"}
 
-# --- 4. SISTEMA DE LECTURA GPS ---
+# --- 4. SISTEMA DE LECTURA GPS CON CONTROL DE CALIDAD ---
 def get_real_location():
-    """Lee coordenadas del Excel (ya corregidas con comas) y obtiene dirección."""
+    """Lee coordenadas y PRECISIÓN del Excel para filtrar datos malos."""
     if GPS_STATUS != "🟢 LINKED": return {'error': "Falta pestaña GPS"}
     
     try:
+        # Leemos Lat, Lon, Dirección manual y PRECISIÓN (Columna E)
         lat = hoja_gps.acell('A2').value
         lon = hoja_gps.acell('B2').value
         updated = hoja_gps.acell('D2').value
+        acc_str = hoja_gps.acell('E2').value # Dato de precisión del móvil
+        
+        # Convertimos precisión a número (si falla o está vacío, asumimos mala calidad)
+        try: 
+            if acc_str: accuracy = float(str(acc_str).replace(',', '.'))
+            else: accuracy = 100.0
+        except: accuracy = 100.0
         
         if lat and lon:
-            # Llamada al sistema híbrido
-            info_direccion = get_address_from_coords(lat, lon)
+            # Semáforo de Calidad
+            if accuracy < 30:
+                calidad_visual = "🟢" # Excelente (Calle exacta)
+                nivel_confianza = "ALTO"
+            elif accuracy < 100:
+                calidad_visual = "🟡" # Decente (Manzana correcta)
+                nivel_confianza = "MEDIO"
+            else:
+                calidad_visual = "🔴" # Malo (Solo barrio/zona)
+                nivel_confianza = "BAJO"
             
-            direccion_final = info_direccion.get('direccion_completa', f"Coords: {lat}, {lon}")
-            proveedor = info_direccion.get('proveedor', 'N/A')
+            # Llamamos a Google Maps/OSM
+            info_direccion = get_address_from_coords(lat, lon)
+            direccion_texto = info_direccion.get('direccion_completa', f"{lat},{lon}")
+            proveedor = info_direccion.get('proveedor', 'GPS')
+
+            # Si la precisión es mala, ZEO debe saber que es una "Zona" y no un punto exacto
+            if nivel_confianza == "BAJO":
+                calle_simple = info_direccion.get('calle', 'Ubicación')
+                direccion_texto = f"Zona de {calle_simple} (±{int(accuracy)}m)"
             
             return {
                 'latitud': lat,
                 'longitud': lon,
-                'direccion': direccion_final,
+                'direccion': direccion_texto,
                 'proveedor': proveedor,
                 'updated': updated,
+                'accuracy': accuracy,
+                'calidad_icon': calidad_visual,
                 'error': None
             }
-        else: return {'error': "Esperando móvil..."}
+        else: return {'error': "Esperando datos..."}
     except Exception as e: return {'error': str(e)}
 
 # --- 5. CLIMA ---
 def get_weather(lat=None, lon=None):
     if "CLAVE_WEATHER" not in st.secrets: return {'error': "Falta Key Clima"}
     api_key = st.secrets["CLAVE_WEATHER"]
-    # Limpiamos coords para clima también
     if lat: lat = str(lat).replace(',', '.')
     if lon: lon = str(lon).replace(',', '.')
     
@@ -215,7 +241,8 @@ def generar_perfil():
 CONTEXTO_SITUACIONAL = f"""
 [SITUACIÓN REAL]
 - Fecha/Hora: {FECHA_ACTUAL} | {HORA_ACTUAL}
-- DIRECCIÓN EXACTA: {UBI_TEXTO}
+- UBICACIÓN: {UBI_TEXTO}
+- Calidad Señal GPS: ±{int(DATOS_GPS.get('accuracy', 100))} metros.
 - Clima Local: {DATOS_CLIMA.get('temp', '--')}°C, {DATOS_CLIMA.get('desc', '')}.
 """
 
@@ -274,12 +301,15 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
     
-    # WIDGET PREMIUM
+    # WIDGET PREMIUM CON CALIDAD
+    acc_val = int(DATOS_GPS.get('accuracy', 0))
+    icon_calidad = DATOS_GPS.get('calidad_icon', '⚪')
+    
     st.markdown(f"""
     <div class="info-widget">
-        <div class="widget-title">{ESTADO_GPS_VISUAL}</div>
+        <div class="widget-title"><span>{ESTADO_GPS_VISUAL}</span> <span style="color:#666">±{acc_val}m</span></div>
         <div class="widget-value">{int(DATOS_CLIMA.get('temp', 0))}°C <span style="font-size:14px; font-weight:400">{DATOS_CLIMA.get('desc','')}</span></div>
-        <div class="widget-sub">📍 {DATOS_GPS.get('direccion', 'Calculando...')}</div>
+        <div class="widget-sub">{icon_calidad} {DATOS_GPS.get('direccion', 'Calculando...')}</div>
         <div class="widget-sub" style="color:#AAA; font-size:10px; margin-top:5px">🕒 {HORA_ACTUAL}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -297,8 +327,10 @@ with st.sidebar:
 if not st.session_state.messages:
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown('<div class="welcome-title">Hola, Sr. Eliot</div>', unsafe_allow_html=True)
+    
+    # Saludo inteligente según confianza
     calle_actual = DATOS_GPS.get('direccion', 'Madrid')
-    st.markdown(f'<div class="welcome-subtitle">Ubicación exacta: {calle_actual}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="welcome-subtitle">Ubicación: {calle_actual}</div>', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
     c1, c2, c3, c4 = st.columns(4)
@@ -327,7 +359,7 @@ if prompt := st.chat_input("Escribe a Zeo..."):
     st.markdown(f"""<div class="chat-row row-user"><div class="bubble-user">{prompt}</div></div>""", unsafe_allow_html=True)
 
     placeholder_loading = st.empty()
-    placeholder_loading.markdown("""<div class="thinking-container"><div class="gemini-loader"></div><span style="color:#666;">Conectando Google Maps...</span></div>""", unsafe_allow_html=True)
+    placeholder_loading.markdown("""<div class="thinking-container"><div class="gemini-loader"></div><span style="color:#666;">Consultando Google Maps y Sensores...</span></div>""", unsafe_allow_html=True)
 
     full_res = "..."
     if "zeox" in prompt.lower():
