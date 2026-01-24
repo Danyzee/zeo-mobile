@@ -9,9 +9,13 @@ import gspread
 from google.oauth2.service_account import Credentials
 import json
 import requests
+# --- NUEVOS IMPORTS PARA AUTOGEN ---
+import autogen
+from autogen import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
+from types import SimpleNamespace
 
-# --- 1. CONFIGURACIÓN VISUAL (GEMINI REPLICA) ---
-st.set_page_config(page_title="Zeo", page_icon="✨", layout="wide")
+# --- 1. CONFIGURACIÓN VISUAL (ZEO CORE) ---
+st.set_page_config(page_title="Zeo Core", page_icon="✨", layout="wide")
 
 st.markdown("""
     <style>
@@ -33,6 +37,13 @@ st.markdown("""
     .widget-value { font-size: 18px; font-weight: 600; color: #1F1F1F; }
     .widget-sub { font-size: 13px; color: #666; margin-top: 2px;}
     
+    /* ESTILOS AUTOGEN */
+    .agent-box { margin-bottom: 8px; padding: 8px; border-radius: 6px; border-left: 4px solid #ccc; background-color: #f9f9f9; font-size: 0.9em; }
+    .agent-lider { border-color: #4285F4; }
+    .agent-analista { border-color: #34A853; }
+    .agent-critico { border-color: #EA4335; }
+    .agent-name { font-weight: bold; font-size: 0.8em; margin-bottom: 2px; text-transform: uppercase; color: #555; }
+
     .gemini-loader { width: 25px; height: 25px; border-radius: 50%; background: conic-gradient(#4285F4, #EA4335, #FBBC04, #34A853); -webkit-mask: radial-gradient(farthest-side, transparent 70%, black 71%); mask: radial-gradient(farthest-side, transparent 70%, black 71%); animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .thinking-container { display: flex; align-items: center; gap: 15px; margin-top: 20px; }
@@ -84,9 +95,6 @@ RECUERDOS_TOTALES = obtener_memoria_total()
 
 # --- 3. SISTEMA HÍBRIDO DE GEOCODIFICACIÓN (Google + OSM) ---
 def get_address_from_coords(latitude, longitude):
-    """
-    Intenta usar Google Maps (Premium). Si falla, usa OpenStreetMap (Backup).
-    """
     lat_clean = str(latitude).replace(',', '.').strip()
     lon_clean = str(longitude).replace(',', '.').strip()
 
@@ -95,104 +103,60 @@ def get_address_from_coords(latitude, longitude):
         try:
             api_key = st.secrets["CLAVE_GOOGLE_MAPS"]
             url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={lat_clean},{lon_clean}&key={api_key}&language=es"
-            
             response = requests.get(url, timeout=3)
             data = response.json()
-            
             if data['status'] == 'OK':
                 resultado = data['results'][0]
                 direccion_completa = resultado['formatted_address']
-                
-                # Extraemos calle y número si es posible
                 componentes = resultado['address_components']
                 calle = next((c['long_name'] for c in componentes if 'route' in c['types']), "Calle desconocida")
                 numero = next((c['long_name'] for c in componentes if 'street_number' in c['types']), "")
-                
-                return {
-                    'direccion_completa': direccion_completa,
-                    'calle': f"{calle}, {numero}".strip(', '),
-                    'proveedor': '💎 Google Maps',
-                    'error': None
-                }
-        except:
-            pass # Si falla Google, continuamos al Plan B
+                return {'direccion_completa': direccion_completa, 'calle': f"{calle}, {numero}".strip(', '), 'proveedor': '💎 Google Maps', 'error': None}
+        except: pass
 
     # B. PLAN B: OPENSTREETMAP (Gratis)
     try:
         headers = {'User-Agent': 'ZEO_Assistant/1.0'}
         url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat_clean}&lon={lon_clean}&zoom=18&addressdetails=1"
-        
         response = requests.get(url, headers=headers, timeout=5)
         data = response.json()
-        
         if 'error' in data: return {'error': "Ubicación no mapeable"}
-        
         address = data.get('address', {})
         calle = address.get('road', '') or address.get('pedestrian', '')
         numero = address.get('house_number', '')
         ciudad = address.get('city', '') or address.get('town', '')
-        
         partes = [p for p in [calle, numero, ciudad] if p]
-        
-        return {
-            'direccion_completa': ", ".join(partes),
-            'calle': f"{calle} {numero}".strip(),
-            'proveedor': '🌍 OpenStreet',
-            'error': None
-        }
+        return {'direccion_completa': ", ".join(partes), 'calle': f"{calle} {numero}".strip(), 'proveedor': '🌍 OpenStreet', 'error': None}
     except Exception as e:
         return {'error': f"Error Total: {str(e)}"}
 
-# --- 4. SISTEMA DE LECTURA GPS CON CONTROL DE CALIDAD ---
+# --- 4. SISTEMA DE LECTURA GPS ---
 def get_real_location():
-    """Lee coordenadas y PRECISIÓN del Excel para filtrar datos malos."""
     if GPS_STATUS != "🟢 LINKED": return {'error': "Falta pestaña GPS"}
-    
     try:
-        # Leemos Lat, Lon, Dirección manual y PRECISIÓN (Columna E)
         lat = hoja_gps.acell('A2').value
         lon = hoja_gps.acell('B2').value
         updated = hoja_gps.acell('D2').value
-        acc_str = hoja_gps.acell('E2').value # Dato de precisión del móvil
-        
-        # Convertimos precisión a número (si falla o está vacío, asumimos mala calidad)
+        acc_str = hoja_gps.acell('E2').value
         try: 
             if acc_str: accuracy = float(str(acc_str).replace(',', '.'))
             else: accuracy = 100.0
         except: accuracy = 100.0
         
         if lat and lon:
-            # Semáforo de Calidad
-            if accuracy < 30:
-                calidad_visual = "🟢" # Excelente (Calle exacta)
-                nivel_confianza = "ALTO"
-            elif accuracy < 100:
-                calidad_visual = "🟡" # Decente (Manzana correcta)
-                nivel_confianza = "MEDIO"
-            else:
-                calidad_visual = "🔴" # Malo (Solo barrio/zona)
-                nivel_confianza = "BAJO"
+            if accuracy < 30: calidad_visual = "🟢"; nivel_confianza = "ALTO"
+            elif accuracy < 100: calidad_visual = "🟡"; nivel_confianza = "MEDIO"
+            else: calidad_visual = "🔴"; nivel_confianza = "BAJO"
             
-            # Llamamos a Google Maps/OSM
             info_direccion = get_address_from_coords(lat, lon)
             direccion_texto = info_direccion.get('direccion_completa', f"{lat},{lon}")
             proveedor = info_direccion.get('proveedor', 'GPS')
 
-            # Si la precisión es mala, ZEO debe saber que es una "Zona" y no un punto exacto
             if nivel_confianza == "BAJO":
                 calle_simple = info_direccion.get('calle', 'Ubicación')
                 direccion_texto = f"Zona de {calle_simple} (±{int(accuracy)}m)"
             
-            return {
-                'latitud': lat,
-                'longitud': lon,
-                'direccion': direccion_texto,
-                'proveedor': proveedor,
-                'updated': updated,
-                'accuracy': accuracy,
-                'calidad_icon': calidad_visual,
-                'error': None
-            }
+            return {'latitud': lat, 'longitud': lon, 'direccion': direccion_texto, 'proveedor': proveedor, 'updated': updated, 'accuracy': accuracy, 'calidad_icon': calidad_visual, 'error': None}
         else: return {'error': "Esperando datos..."}
     except Exception as e: return {'error': str(e)}
 
@@ -202,19 +166,16 @@ def get_weather(lat=None, lon=None):
     api_key = st.secrets["CLAVE_WEATHER"]
     if lat: lat = str(lat).replace(',', '.')
     if lon: lon = str(lon).replace(',', '.')
-    
     url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric&lang=es" if lat and lon else f"https://api.openweathermap.org/data/2.5/weather?q=Madrid&appid={api_key}&units=metric&lang=es"
     try:
         r = requests.get(url, timeout=3)
         d = r.json()
-        if r.status_code == 200:
-            return {'temp': d['main']['temp'], 'desc': d['weather'][0]['description'], 'loc': d['name'], 'error': None}
+        if r.status_code == 200: return {'temp': d['main']['temp'], 'desc': d['weather'][0]['description'], 'loc': d['name'], 'error': None}
         return {'error': 'Err API'}
     except: return {'error': 'Err Conexión'}
 
 # EJECUCIÓN SENSORES
 DATOS_GPS = get_real_location()
-
 if DATOS_GPS.get('error') is None:
     DATOS_CLIMA = get_weather(DATOS_GPS['latitud'], DATOS_GPS['longitud'])
     UBI_TEXTO = f"{DATOS_GPS['direccion']} (Act: {DATOS_GPS.get('updated','?')})"
@@ -229,8 +190,7 @@ HORA_ACTUAL = datetime.now(zona_madrid).strftime("%H:%M")
 FECHA_ACTUAL = datetime.now(zona_madrid).strftime("%d/%m/%Y")
 
 # --- 6. PERFIL & CONTEXTO ---
-if "perfil_psicologico" not in st.session_state:
-    st.session_state.perfil_psicologico = "Perfil no generado."
+if "perfil_psicologico" not in st.session_state: st.session_state.perfil_psicologico = "Perfil no generado."
 
 def generar_perfil():
     if MEMORY_STATUS != "🟢 REC": return "Error Memoria."
@@ -251,15 +211,11 @@ PROMPT_ZEO = f"""
 INSTRUCCIONES DE SISTEMA (MÁXIMA PRIORIDAD):
 IDENTIDAD: Eres ZEO. Mayordomo digital.
 AMO: Lijie Zhang ("Señor Eliot").
-
 {CONTEXTO_SITUACIONAL}
-
 [PERFIL]
 {st.session_state.perfil_psicologico}
-
 [MEMORIA]
 {RECUERDOS_TOTALES}
-
 PERSONALIDAD: Muy listo, culto, eficiente. Sumiso y amable.
 OBJETIVO: Organizar la vida de Eliot con precisión.
 """
@@ -270,9 +226,53 @@ IDENTIDAD: ZEOX (Grok). Rebelde.
 PERSONALIDAD: Descarado, callejero.
 """
 
-# --- 8. MOTOR ---
+# --- 8. SKILL AUTOGEN (NUEVA IMPLEMENTACIÓN) ---
+MODELO_AUTOGEN = "gemini-2.0-flash" 
+
+class ZeoMotor:
+    def __init__(self, config, **kwargs):
+        self.model_name = MODELO_AUTOGEN
+    
+    def create(self, params):
+        messages = params.get("messages", [])
+        ultimo = messages[-1]["content"]
+        if not ultimo or "TERMINATE" in ultimo: return self._mock("...")
+        try:
+            model = genai.GenerativeModel(self.model_name)
+            res = model.generate_content(ultimo)
+            return self._mock(res.text)
+        except Exception as e: return self._mock(f"Err: {e}")
+    
+    def _mock(self, texto):
+        r = SimpleNamespace()
+        r.choices = [SimpleNamespace(message=SimpleNamespace(content=texto, function_call=None))]
+        r.model = self.model_name
+        return r
+    def message_retrieval(self, r): return [r.choices[0].message.content]
+    def cost(self, r): return 0
+    @staticmethod
+    def get_usage(r): return {}
+
+def convocar_consejo(prompt_u):
+    conf = [{"model": MODELO_AUTOGEN, "api_key": "NULL", "model_client_cls": "ZeoMotor"}]
+    llm_c = {"config_list": conf}
+    
+    lider = AssistantAgent(name="Zeo_Lider", llm_config=llm_c, system_message="Eres LÍDER. Planifica y delega al Analista. Sé breve.")
+    analista = AssistantAgent(name="Zeo_Analista", llm_config=llm_c, system_message="Eres ANALISTA. Da datos técnicos y detalles.")
+    critico = AssistantAgent(name="Zeo_Critico", llm_config=llm_c, system_message="Eres CRÍTICO. Revisa y aprueba.")
+    user = UserProxyAgent(name="Eliot", human_input_mode="NEVER", max_consecutive_auto_reply=0, code_execution_config=False)
+    
+    for a in [lider, analista, critico]: a.register_model_client(model_client_cls=ZeoMotor)
+    
+    group = GroupChat(agents=[user, lider, analista, critico], messages=[], max_round=4, speaker_selection_method="round_robin")
+    manager = GroupChatManager(groupchat=group, llm_config=False)
+    
+    res = user.initiate_chat(manager, message=prompt_u)
+    return res.chat_history
+
+# --- 9. MOTOR ESTÁNDAR ---
 def iniciar_motor():
-    modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-3-pro-preview"]
+    modelos = ["gemini-2.5-pro", "gemini-pro-latest", "gemini-3-pro-preview", "gemini-2.0-flash"]
     for m in modelos:
         try:
             test = genai.GenerativeModel(m)
@@ -294,14 +294,13 @@ def guardar_log(role, text):
             hoja_memoria.append_row([ts, role, text])
         except: pass
 
-# --- 9. INTERFAZ ---
+# --- 10. INTERFAZ ---
 with st.sidebar:
     if st.button("➕ Nuevo chat", use_container_width=True):
         st.session_state.chat_session = None
         st.session_state.messages = []
         st.rerun()
     
-    # WIDGET PREMIUM CON CALIDAD
     acc_val = int(DATOS_GPS.get('accuracy', 0))
     icon_calidad = DATOS_GPS.get('calidad_icon', '⚪')
     
@@ -313,6 +312,9 @@ with st.sidebar:
         <div class="widget-sub" style="color:#AAA; font-size:10px; margin-top:5px">🕒 {HORA_ACTUAL}</div>
     </div>
     """, unsafe_allow_html=True)
+    
+    # TOGGLE AUTOGEN (SKILL NUEVA)
+    modo_consejo = st.toggle("👥 Modo Consejo (AutoGen)", value=False)
     
     if st.button("🧠 Perfil Eliot", use_container_width=True):
         perfil = generar_perfil()
@@ -327,8 +329,6 @@ with st.sidebar:
 if not st.session_state.messages:
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown('<div class="welcome-title">Hola, Sr. Eliot</div>', unsafe_allow_html=True)
-    
-    # Saludo inteligente según confianza
     calle_actual = DATOS_GPS.get('direccion', 'Madrid')
     st.markdown(f'<div class="welcome-subtitle">Ubicación: {calle_actual}</div>', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
@@ -359,10 +359,29 @@ if prompt := st.chat_input("Escribe a Zeo..."):
     st.markdown(f"""<div class="chat-row row-user"><div class="bubble-user">{prompt}</div></div>""", unsafe_allow_html=True)
 
     placeholder_loading = st.empty()
-    placeholder_loading.markdown("""<div class="thinking-container"><div class="gemini-loader"></div><span style="color:#666;">Consultando Google Maps y Sensores...</span></div>""", unsafe_allow_html=True)
+    placeholder_loading.markdown("""<div class="thinking-container"><div class="gemini-loader"></div><span style="color:#666;">Procesando...</span></div>""", unsafe_allow_html=True)
 
     full_res = "..."
-    if "zeox" in prompt.lower():
+    
+    # --- LÓGICA DE RESPUESTA ---
+    if modo_consejo:
+        # CAMINO A: SKILL AUTOGEN (CONSEJO)
+        try:
+            historial = convocar_consejo(prompt)
+            full_res = "<h5>👥 DEBATE DEL CONSEJO:</h5>"
+            for m in historial:
+                if m.get('name') == "Eliot": continue
+                nombre = m.get('name','Agente')
+                css_class = "agent-box"
+                if "Lider" in nombre: css_class += " agent-lider"
+                elif "Analista" in nombre: css_class += " agent-analista"
+                elif "Critico" in nombre: css_class += " agent-critico"
+                
+                full_res += f"""<div class="{css_class}"><div class="agent-name">{nombre}</div>{m.get('content','').replace(chr(10), '<br>')}</div>"""
+        except Exception as e: full_res = f"⚠️ Error Consejo: {e}"
+
+    elif "zeox" in prompt.lower():
+        # CAMINO B: ZEOX (GROK)
         if "CLAVE_GROK" in st.secrets:
             try:
                 client_grok = OpenAI(api_key=st.secrets["CLAVE_GROK"], base_url="https://api.x.ai/v1")
@@ -370,7 +389,9 @@ if prompt := st.chat_input("Escribe a Zeo..."):
                 full_res = ">> 👹 **ZEOX:**\n\n" + res.choices[0].message.content
             except Exception as e: full_res = f"ZEOX Error: {e}"
         else: full_res = "⚠️ ZEOX no disponible."
+        
     else:
+        # CAMINO C: ZEO ESTÁNDAR (GEMINI)
         try:
             if archivo:
                 img = Image.open(archivo)
